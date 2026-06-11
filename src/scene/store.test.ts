@@ -28,6 +28,17 @@ describe('scene store', () => {
     expect(useScene.getState().update('nope-9', { color: 'red' })).toBeNull()
   })
 
+  it('persists an absolute position + rotation (as a grab does)', () => {
+    const o = useScene.getState().spawn({ kind: 'box' })
+    useScene.getState().update(o.id, {
+      position: { x: 1.5, y: 0.8, z: -2 },
+      rotation: [0, Math.PI / 2, 0],
+    })
+    const got = useScene.getState().objects[0]
+    expect(got.position).toEqual([1.5, 0.8, -2])
+    expect(got.rotation).toEqual([0, Math.PI / 2, 0])
+  })
+
   it('removes objects', () => {
     const o = useScene.getState().spawn({ kind: 'cone' })
     expect(useScene.getState().remove(o.id)).toBe(true)

@@ -8,6 +8,7 @@ export interface SpawnArgs {
   label?: string
   text?: string
   src?: string
+  rotation?: [number, number, number]
   position?: { x: number; y: number; z: number }
 }
 
@@ -17,6 +18,8 @@ export interface UpdateArgs {
   label?: string
   text?: string
   src?: string
+  /** Euler rotation in radians [x, y, z]. */
+  rotation?: [number, number, number]
   /** Absolute position. */
   position?: { x: number; y: number; z: number }
   /** Relative move, added to the current position. */
@@ -60,6 +63,7 @@ export const useScene = create<SceneState>((set, get) => ({
         ? [args.position.x, args.position.y, args.position.z]
         : defaultPosition(objects.length),
       size: args.size ?? (args.kind === 'text' ? 1 : args.kind === 'image' ? 1.5 : 0.5),
+      rotation: args.rotation,
       color: args.color ?? '#99aadd',
       label: args.label,
       text: args.text,
@@ -80,6 +84,7 @@ export const useScene = create<SceneState>((set, get) => ({
     if (patch.label !== undefined) next.label = patch.label
     if (patch.text !== undefined) next.text = patch.text
     if (patch.src !== undefined) next.src = patch.src
+    if (patch.rotation !== undefined) next.rotation = patch.rotation
     if (patch.position) {
       next.position = [patch.position.x, patch.position.y, patch.position.z]
     }

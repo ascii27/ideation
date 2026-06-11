@@ -11,6 +11,8 @@ export interface SceneObject {
   /** Uniform size multiplier in meters-ish (unit geometries are scaled by this).
    *  For image panels this is the panel width in meters. */
   size: number
+  /** Euler rotation in radians [x, y, z]. Set by voice or by grabbing. */
+  rotation?: [number, number, number]
   /** CSS color string. */
   color: string
   /** Optional human label so the agent can refer back to it. */
