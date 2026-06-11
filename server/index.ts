@@ -3,6 +3,7 @@ import path from 'node:path'
 import express from 'express'
 import { realtimeRouter } from './realtime.ts'
 import { imageRouter } from './image.ts'
+import { modelsRouter } from './models.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -25,6 +26,9 @@ async function main() {
 
   // Image panels: generate (gpt-image-1) or fetch-by-URL, returned as a data URL.
   app.use('/api', imageRouter)
+
+  // Object library: Poly Pizza search + same-origin GLB proxy.
+  app.use('/api', modelsRouter)
 
   if (isProd) {
     // Serve the built frontend and fall back to index.html for client routing.

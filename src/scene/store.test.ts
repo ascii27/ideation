@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useScene } from './store'
 import { handleToolCall } from '../agent/toolHandlers'
+import { findCatalogModel } from './modelCatalog'
 
 beforeEach(() => {
   useScene.getState().clear()
@@ -26,6 +27,17 @@ describe('scene store', () => {
 
   it('returns null when updating a missing id', () => {
     expect(useScene.getState().update('nope-9', { color: 'red' })).toBeNull()
+  })
+
+  it('tracks model attribution and lists unique credits', () => {
+    useScene.getState().spawn({
+      kind: 'model',
+      label: 'Duck',
+      src: '/api/models/proxy?url=x',
+      attribution: { author: 'Sony', license: 'Khronos sample' },
+    })
+    expect(useScene.getState().summary()).toContain('model-1 [Duck]: model (Duck)')
+    expect(useScene.getState().credits()).toEqual(['Duck — Sony (Khronos sample)'])
   })
 
   it('persists an absolute position + rotation (as a grab does)', () => {
@@ -102,5 +114,17 @@ describe('tool handlers', () => {
   it('reports unknown tools', async () => {
     const r = (await handleToolCall('frobnicate', {})) as { ok: boolean }
     expect(r.ok).toBe(false)
+  })
+})
+
+describe('model catalog', () => {
+  it('matches curated models by keyword', () => {
+    expect(findCatalogModel('a rubber duck')?.title).toBe('Duck')
+    expect(findCatalogModel('sports car')?.title).toBe('Toy Car')
+    expect(findCatalogModel('lamp')?.title).toBe('Lantern')
+  })
+
+  it('returns undefined for unknown queries', () => {
+    expect(findCatalogModel('xyzzy unicorn castle')).toBeUndefined()
   })
 })

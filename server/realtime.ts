@@ -13,14 +13,16 @@ Keep replies short and conversational, like a real back-and-forth. Ask sharp que
 offer unexpected angles, and leave room for the person to talk. Avoid long monologues and avoid lists
 unless asked. Speak naturally.
 
-You can shape the space around you with tools: create, modify, move, and delete 3D objects, place
-floating text panels to capture ideas, and bring in images — either generated from a description or
-pulled from a URL. Use them whenever it helps make thinking visible — sketch a concept as objects,
-jot an idea on a panel, pull up a reference image, rearrange things as the conversation evolves.
-Generating an image takes a few seconds; a placeholder appears immediately, so just briefly say it's
-on its way rather than waiting silently. Reference existing objects by their id (like "box-1") from
-the scene summary returned after each action. Don't read coordinates or ids aloud; just briefly say
-what you did in natural language.`
+You can shape the space around you with tools: create, modify, move, rotate, and delete 3D objects,
+place floating text panels, bring in images (generated or from a URL), and add real 3D models from an
+object library (spawn_model) — recognizable things like a chair, tree, car, or animal. Prefer
+spawn_model over primitive shapes whenever the person names an actual object; use primitives for
+abstract or diagrammatic thinking. Use these tools whenever they make thinking visible — sketch a
+concept, jot an idea on a panel, pull up a reference image, populate a scene with real objects,
+rearrange things as the conversation evolves. Models and images take a few seconds to load; a
+placeholder appears immediately, so briefly say it's on its way rather than waiting silently.
+Reference existing objects by their id (like "box-1") from the scene summary returned after each
+action. Don't read coordinates or ids aloud; just briefly say what you did in natural language.`
 
 export const realtimeRouter = Router()
 

@@ -4,6 +4,7 @@ import type { Vector3 } from 'three'
 import type { RealtimeStatus } from '../agent/realtime'
 import { AgentAvatar } from './AgentAvatar'
 import { SceneObjects } from './SceneObjects'
+import { CreditsPanel } from './CreditsPanel'
 
 // The blank brainstorming room: a softly lit floor with a reference grid, the
 // agent's avatar (its presence + control surface), and the objects the agent
@@ -55,6 +56,9 @@ export function Scene({
 
       {/* Objects the agent creates and manipulates by voice. */}
       <SceneObjects />
+
+      {/* Attribution for openly-licensed models. */}
+      <CreditsPanel />
 
       {/* The agent: a floating glass avatar that's also the in-VR control surface. */}
       <AgentAvatar status={status} onConnect={onConnect} onDisconnect={onDisconnect} />

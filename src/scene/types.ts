@@ -2,7 +2,14 @@
 // source of truth — React Three Fiber renders from it, and it doubles as the
 // agent's spatial memory (summarized back to the model after each tool call).
 
-export type ObjectKind = 'box' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'text' | 'image'
+export type ObjectKind = 'box' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'text' | 'image' | 'model'
+
+/** Credit for an openly-licensed asset (CC-BY models need attribution shown). */
+export interface Attribution {
+  author: string
+  license: string
+  url?: string
+}
 
 export interface SceneObject {
   id: string
@@ -19,6 +26,9 @@ export interface SceneObject {
   label?: string
   /** Text content for `kind: 'text'` panels. */
   text?: string
-  /** Image source (data URL or URL) for `kind: 'image'` panels. Empty while loading. */
+  /** For `kind: 'image'`, the image data URL/URL. For `kind: 'model'`, the GLB
+   *  URL (served via /api/models/proxy). Empty while loading. */
   src?: string
+  /** Asset credit for `kind: 'model'`. */
+  attribution?: Attribution
 }

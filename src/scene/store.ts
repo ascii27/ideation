@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ObjectKind, SceneObject } from './types'
+import type { Attribution, ObjectKind, SceneObject } from './types'
 
 export interface SpawnArgs {
   kind: ObjectKind
@@ -9,6 +9,7 @@ export interface SpawnArgs {
   text?: string
   src?: string
   rotation?: [number, number, number]
+  attribution?: Attribution
   position?: { x: number; y: number; z: number }
 }
 
@@ -18,6 +19,7 @@ export interface UpdateArgs {
   label?: string
   text?: string
   src?: string
+  attribution?: Attribution
   /** Euler rotation in radians [x, y, z]. */
   rotation?: [number, number, number]
   /** Absolute position. */
@@ -35,6 +37,8 @@ interface SceneState {
   clear: () => void
   /** Compact text description fed back to the model so it knows what exists. */
   summary: () => string
+  /** Unique asset credits for models currently in the scene. */
+  credits: () => string[]
 }
 
 // When no explicit position is given, place new objects in a loose arc in front
@@ -62,12 +66,13 @@ export const useScene = create<SceneState>((set, get) => ({
       position: args.position
         ? [args.position.x, args.position.y, args.position.z]
         : defaultPosition(objects.length),
-      size: args.size ?? (args.kind === 'text' ? 1 : args.kind === 'image' ? 1.5 : 0.5),
+      size: args.size ?? (args.kind === 'text' ? 1 : args.kind === 'image' ? 1.5 : args.kind === 'model' ? 0.7 : 0.5),
       rotation: args.rotation,
       color: args.color ?? '#99aadd',
       label: args.label,
       text: args.text,
       src: args.src,
+      attribution: args.attribution,
     }
     set({ objects: [...objects, obj], counters: { ...counters, [args.kind]: n } })
     return obj
@@ -84,6 +89,7 @@ export const useScene = create<SceneState>((set, get) => ({
     if (patch.label !== undefined) next.label = patch.label
     if (patch.text !== undefined) next.text = patch.text
     if (patch.src !== undefined) next.src = patch.src
+    if (patch.attribution !== undefined) next.attribution = patch.attribution
     if (patch.rotation !== undefined) next.rotation = patch.rotation
     if (patch.position) {
       next.position = [patch.position.x, patch.position.y, patch.position.z]
@@ -119,9 +125,20 @@ export const useScene = create<SceneState>((set, get) => ({
       let desc: string
       if (o.kind === 'text') desc = `text "${o.text ?? ''}"`
       else if (o.kind === 'image') desc = o.src ? 'image' : 'image (loading)'
+      else if (o.kind === 'model') desc = o.src ? `model (${o.label ?? 'object'})` : 'model (loading)'
       else desc = `${o.color} ${o.kind}`
       return `${o.id}${lbl}: ${desc} at (${p})`
     })
     return `${objects.length} object(s): ${parts.join('; ')}`
+  },
+
+  credits: () => {
+    const seen = new Set<string>()
+    for (const o of get().objects) {
+      if (o.attribution) {
+        seen.add(`${o.label ?? 'model'} — ${o.attribution.author} (${o.attribution.license})`)
+      }
+    }
+    return [...seen]
   },
 }))
