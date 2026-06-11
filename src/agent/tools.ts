@@ -1,0 +1,101 @@
+// Tool (function) schemas advertised to the OpenAI Realtime model. This module is
+// pure data (no imports) so the Node server can import it to put into the session
+// config while the browser uses it to know the tool surface. Handlers live in
+// toolHandlers.ts and mutate the scene store.
+
+export interface ToolDefinition {
+  type: 'function'
+  name: string
+  description: string
+  parameters: Record<string, unknown>
+}
+
+const position = {
+  type: 'object',
+  description: 'Position in meters. x = right, y = up (floor is 0), z = forward is negative (in front of the user).',
+  properties: { x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' } },
+  required: ['x', 'y', 'z'],
+}
+
+export const TOOL_DEFINITIONS: ToolDefinition[] = [
+  {
+    type: 'function',
+    name: 'spawn_object',
+    description:
+      'Create a new 3D object in the brainstorming space. Use this when the person wants something to appear. If position is omitted it is placed in front of the user automatically.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['box', 'sphere', 'cylinder', 'cone', 'torus'],
+          description: 'The shape to create.',
+        },
+        color: { type: 'string', description: 'CSS color name or hex, e.g. "red" or "#ff8800".' },
+        size: { type: 'number', description: 'Approximate size in meters. Default 0.5.' },
+        label: { type: 'string', description: 'Optional short name to remember this object by.' },
+        position,
+      },
+      required: ['kind'],
+    },
+  },
+  {
+    type: 'function',
+    name: 'update_object',
+    description:
+      'Modify an existing object: recolor, resize, or move it. Reference it by its id (e.g. "box-1") from the scene summary.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'The object id, e.g. "box-1".' },
+        color: { type: 'string', description: 'New CSS color.' },
+        size: { type: 'number', description: 'New size in meters.' },
+        label: { type: 'string', description: 'New label.' },
+        position,
+        move: {
+          type: 'object',
+          description: 'Relative move in meters added to the current position.',
+          properties: { x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' } },
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    type: 'function',
+    name: 'delete_object',
+    description: 'Remove an object from the space by its id.',
+    parameters: {
+      type: 'object',
+      properties: { id: { type: 'string', description: 'The object id to remove.' } },
+      required: ['id'],
+    },
+  },
+  {
+    type: 'function',
+    name: 'create_text_panel',
+    description:
+      'Place a floating text panel in the space — for capturing an idea, a note, a heading, or a short list.',
+    parameters: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'The text to show.' },
+        color: { type: 'string', description: 'Optional text color.' },
+        position,
+      },
+      required: ['text'],
+    },
+  },
+  {
+    type: 'function',
+    name: 'list_scene',
+    description: 'Get a summary of everything currently in the space and where it is.',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
+    type: 'function',
+    name: 'clear_scene',
+    description: 'Remove everything from the space. Use only when the person clearly asks to start over.',
+    parameters: { type: 'object', properties: {} },
+  },
+]
