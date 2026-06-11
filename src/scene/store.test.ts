@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useScene } from './store'
 import { handleToolCall } from '../agent/toolHandlers'
 import { findCatalogModel } from './modelCatalog'
+import { presetToMaterial } from './materials'
 
 beforeEach(() => {
   useScene.getState().clear()
@@ -114,6 +115,27 @@ describe('tool handlers', () => {
   it('reports unknown tools', async () => {
     const r = (await handleToolCall('frobnicate', {})) as { ok: boolean }
     expect(r.ok).toBe(false)
+  })
+})
+
+describe('materials & texturing', () => {
+  it('maps presets to physical material params', () => {
+    expect(presetToMaterial('metal')).toMatchObject({ metalness: 1 })
+    expect(presetToMaterial('glass').transmission).toBeGreaterThan(0)
+    expect(presetToMaterial('matte').roughness).toBe(1)
+    expect(presetToMaterial(undefined).metalness).toBeLessThan(1)
+  })
+
+  it('set_material updates preset/overrides; apply_texture validates target', async () => {
+    const box = useScene.getState().spawn({ kind: 'box' })
+    await handleToolCall('set_material', { id: box.id, preset: 'metal', roughness: 0.1 })
+    const got = useScene.getState().objects[0]
+    expect(got.materialPreset).toBe('metal')
+    expect(got.roughness).toBe(0.1)
+    expect(useScene.getState().summary()).toContain('metal')
+
+    const miss = (await handleToolCall('apply_texture', { id: 'ghost-1', prompt: 'brick' })) as { ok: boolean }
+    expect(miss.ok).toBe(false)
   })
 })
 

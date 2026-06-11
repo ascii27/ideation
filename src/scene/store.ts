@@ -1,7 +1,16 @@
 import { create } from 'zustand'
 import type { Attribution, ObjectKind, SceneObject } from './types'
+import type { MaterialPreset } from './materials'
 
-export interface SpawnArgs {
+interface MaterialFields {
+  textureSrc?: string
+  textureRepeat?: number
+  materialPreset?: MaterialPreset
+  metalness?: number
+  roughness?: number
+}
+
+export interface SpawnArgs extends MaterialFields {
   kind: ObjectKind
   color?: string
   size?: number
@@ -13,7 +22,7 @@ export interface SpawnArgs {
   position?: { x: number; y: number; z: number }
 }
 
-export interface UpdateArgs {
+export interface UpdateArgs extends MaterialFields {
   color?: string
   size?: number
   label?: string
@@ -73,6 +82,11 @@ export const useScene = create<SceneState>((set, get) => ({
       text: args.text,
       src: args.src,
       attribution: args.attribution,
+      textureSrc: args.textureSrc,
+      textureRepeat: args.textureRepeat,
+      materialPreset: args.materialPreset,
+      metalness: args.metalness,
+      roughness: args.roughness,
     }
     set({ objects: [...objects, obj], counters: { ...counters, [args.kind]: n } })
     return obj
@@ -90,6 +104,11 @@ export const useScene = create<SceneState>((set, get) => ({
     if (patch.text !== undefined) next.text = patch.text
     if (patch.src !== undefined) next.src = patch.src
     if (patch.attribution !== undefined) next.attribution = patch.attribution
+    if (patch.textureSrc !== undefined) next.textureSrc = patch.textureSrc
+    if (patch.textureRepeat !== undefined) next.textureRepeat = patch.textureRepeat
+    if (patch.materialPreset !== undefined) next.materialPreset = patch.materialPreset
+    if (patch.metalness !== undefined) next.metalness = patch.metalness
+    if (patch.roughness !== undefined) next.roughness = patch.roughness
     if (patch.rotation !== undefined) next.rotation = patch.rotation
     if (patch.position) {
       next.position = [patch.position.x, patch.position.y, patch.position.z]
@@ -126,7 +145,10 @@ export const useScene = create<SceneState>((set, get) => ({
       if (o.kind === 'text') desc = `text "${o.text ?? ''}"`
       else if (o.kind === 'image') desc = o.src ? 'image' : 'image (loading)'
       else if (o.kind === 'model') desc = o.src ? `model (${o.label ?? 'object'})` : 'model (loading)'
-      else desc = `${o.color} ${o.kind}`
+      else {
+        const finish = o.textureSrc ? ' textured' : o.materialPreset ? ` ${o.materialPreset}` : ''
+        desc = `${o.color} ${o.kind}${finish}`
+      }
       return `${o.id}${lbl}: ${desc} at (${p})`
     })
     return `${objects.length} object(s): ${parts.join('; ')}`

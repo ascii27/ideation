@@ -70,6 +70,47 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     type: 'function',
+    name: 'apply_texture',
+    description:
+      'Apply a surface texture to a primitive object (box/sphere/etc.). Either generate the texture from a description (prompt), use an image URL, or pull a real CC0 PBR material from the Poly Haven library (polyhaven). Reference the object by id.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'The object id, e.g. "box-1".' },
+        prompt: { type: 'string', description: 'Describe a texture to generate, e.g. "seamless red brick".' },
+        url: { type: 'string', description: 'A direct image URL to use as the texture.' },
+        polyhaven: {
+          type: 'string',
+          description: 'A real material name to fetch from Poly Haven, e.g. "oak wood", "marble", "rusty metal".',
+        },
+        repeat: { type: 'number', description: 'Tiling factor (repeats per face). Default 1. Use 2-4 for seamless materials.' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    type: 'function',
+    name: 'set_material',
+    description:
+      'Change the material/finish of a primitive object — make it look like metal, glass, plastic, wood, or matte, or set custom metalness/roughness. Reference the object by id.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'The object id, e.g. "box-1".' },
+        preset: {
+          type: 'string',
+          enum: ['metal', 'glass', 'plastic', 'wood', 'matte'],
+          description: 'A material finish.',
+        },
+        color: { type: 'string', description: 'Optional new color.' },
+        metalness: { type: 'number', description: 'Override metalness 0..1.' },
+        roughness: { type: 'number', description: 'Override roughness 0..1.' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    type: 'function',
     name: 'delete_object',
     description: 'Remove an object from the space by its id.',
     parameters: {
