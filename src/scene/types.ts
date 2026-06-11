@@ -2,6 +2,8 @@
 // source of truth — React Three Fiber renders from it, and it doubles as the
 // agent's spatial memory (summarized back to the model after each tool call).
 
+import type { MaterialPreset } from './materials'
+
 export type ObjectKind = 'box' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'text' | 'image' | 'model'
 
 /** Credit for an openly-licensed asset (CC-BY models need attribution shown). */
@@ -31,4 +33,13 @@ export interface SceneObject {
   src?: string
   /** Asset credit for `kind: 'model'`. */
   attribution?: Attribution
+  /** Surface texture (data URL) applied to a primitive's material. */
+  textureSrc?: string
+  /** Texture tiling factor (repeats per face). */
+  textureRepeat?: number
+  /** Material preset for a primitive (metal/glass/wood/…). */
+  materialPreset?: MaterialPreset
+  /** Explicit PBR overrides (take precedence over the preset). */
+  metalness?: number
+  roughness?: number
 }

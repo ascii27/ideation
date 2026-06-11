@@ -1,5 +1,10 @@
 import { useScene, type SpawnArgs, type UpdateArgs } from '../scene/store'
 import { findCatalogModel } from '../scene/modelCatalog'
+import type { MaterialPreset } from '../scene/materials'
+
+function objectExists(id: string): boolean {
+  return useScene.getState().objects.some((o) => o.id === id)
+}
 
 // Executes a tool call from the model against the scene store and returns a
 // JSON-serializable result (always including the updated scene summary so the
@@ -109,6 +114,52 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         useScene.getState().update(obj.id, { text: 'model failed' })
         return { ok: false, id: obj.id, error: String(err), scene: useScene.getState().summary() }
       }
+    }
+
+    case 'apply_texture': {
+      const id = String((args as { id?: unknown }).id ?? '')
+      if (!objectExists(id)) return { ok: false, error: `No object with id "${id}".`, scene: scene.summary() }
+      const prompt = typeof args.prompt === 'string' ? args.prompt : undefined
+      const url = typeof args.url === 'string' ? args.url : undefined
+      const polyhaven = typeof args.polyhaven === 'string' ? args.polyhaven : undefined
+      const repeat = typeof args.repeat === 'number' ? args.repeat : undefined
+      if (!prompt && !url && !polyhaven) {
+        return { ok: false, error: 'Provide prompt, url, or polyhaven.', scene: scene.summary() }
+      }
+      try {
+        let dataUrl: string
+        if (polyhaven) {
+          const r = await fetch(`/api/texture?q=${encodeURIComponent(polyhaven)}`)
+          const j = (await r.json()) as { dataUrl?: string; error?: string }
+          if (!r.ok || !j.dataUrl) throw new Error(j.error ?? `texture failed (${r.status})`)
+          dataUrl = j.dataUrl
+        } else {
+          const r = await fetch('/api/image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, url }),
+          })
+          const j = (await r.json()) as { dataUrl?: string; error?: string }
+          if (!r.ok || !j.dataUrl) throw new Error(j.error ?? `texture failed (${r.status})`)
+          dataUrl = j.dataUrl
+        }
+        useScene.getState().update(id, { textureSrc: dataUrl, textureRepeat: repeat })
+        return { ok: true, id, scene: useScene.getState().summary() }
+      } catch (err) {
+        return { ok: false, id, error: String(err), scene: useScene.getState().summary() }
+      }
+    }
+
+    case 'set_material': {
+      const id = String((args as { id?: unknown }).id ?? '')
+      if (!objectExists(id)) return { ok: false, error: `No object with id "${id}".`, scene: scene.summary() }
+      const patch: UpdateArgs = {}
+      if (typeof args.preset === 'string') patch.materialPreset = args.preset as MaterialPreset
+      if (typeof args.color === 'string') patch.color = args.color
+      if (typeof args.metalness === 'number') patch.metalness = args.metalness
+      if (typeof args.roughness === 'number') patch.roughness = args.roughness
+      scene.update(id, patch)
+      return { ok: true, id, scene: useScene.getState().summary() }
     }
 
     case 'list_scene':

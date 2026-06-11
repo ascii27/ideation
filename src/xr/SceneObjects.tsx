@@ -7,12 +7,14 @@ import {
   DoubleSide,
   type Group,
   type Object3D,
+  RepeatWrapping,
   SRGBColorSpace,
   type Texture,
   TextureLoader,
   Vector3,
 } from 'three'
 import { useScene } from '../scene/store'
+import { presetToMaterial } from '../scene/materials'
 import type { ObjectKind, SceneObject } from '../scene/types'
 
 // Renders every object in the agent-driven scene store. Re-renders automatically
@@ -124,12 +126,51 @@ function ModelPlaceholder({ size, label }: { size: number; label: string }) {
 }
 
 function PrimitiveBody({ obj }: { obj: SceneObject }) {
+  const texture = usePrimitiveTexture(obj.textureSrc, obj.textureRepeat)
+  const preset = presetToMaterial(obj.materialPreset)
+  const metalness = obj.metalness ?? preset.metalness
+  const roughness = obj.roughness ?? preset.roughness
   return (
     <mesh scale={obj.size} castShadow>
       <Primitive kind={obj.kind} />
-      <meshStandardMaterial color={obj.color} roughness={0.5} metalness={0.1} />
+      <meshPhysicalMaterial
+        color={texture ? '#ffffff' : obj.color}
+        map={texture ?? undefined}
+        metalness={metalness}
+        roughness={roughness}
+        transmission={preset.transmission}
+        clearcoat={preset.clearcoat}
+        transparent={preset.transmission > 0}
+        ior={1.5}
+      />
     </mesh>
   )
+}
+
+// Loads a texture for a primitive's material, set up to tile.
+function usePrimitiveTexture(src?: string, repeat?: number): Texture | null {
+  const [texture, setTexture] = useState<Texture | null>(null)
+  useEffect(() => {
+    setTexture(null)
+    if (!src) return
+    let cancelled = false
+    new TextureLoader().load(src, (tex) => {
+      if (cancelled) {
+        tex.dispose()
+        return
+      }
+      tex.colorSpace = SRGBColorSpace
+      tex.wrapS = RepeatWrapping
+      tex.wrapT = RepeatWrapping
+      const r = repeat && repeat > 0 ? repeat : 1
+      tex.repeat.set(r, r)
+      setTexture(tex)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [src, repeat])
+  return texture
 }
 
 function Primitive({ kind }: { kind: ObjectKind }) {

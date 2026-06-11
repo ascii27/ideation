@@ -4,6 +4,7 @@ import express from 'express'
 import { realtimeRouter } from './realtime.ts'
 import { imageRouter } from './image.ts'
 import { modelsRouter } from './models.ts'
+import { textureRouter } from './texture.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -29,6 +30,9 @@ async function main() {
 
   // Object library: Poly Pizza search + same-origin GLB proxy.
   app.use('/api', modelsRouter)
+
+  // Textures: Poly Haven CC0 PBR diffuse maps as same-origin data URLs.
+  app.use('/api', textureRouter)
 
   if (isProd) {
     // Serve the built frontend and fall back to index.html for client routing.
