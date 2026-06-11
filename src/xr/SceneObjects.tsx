@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Text } from '@react-three/drei'
-import { DoubleSide, SRGBColorSpace, type Texture, TextureLoader } from 'three'
+import { Handle, type HandleState } from '@react-three/handle'
+import { DoubleSide, type Group, type Object3D, SRGBColorSpace, type Texture, TextureLoader } from 'three'
 import { useScene } from '../scene/store'
 import type { ObjectKind, SceneObject } from '../scene/types'
 
@@ -17,11 +19,51 @@ export function SceneObjects() {
   )
 }
 
-function ObjectView({ obj }: { obj: SceneObject }) {
-  if (obj.kind === 'text') return <TextPanel obj={obj} />
-  if (obj.kind === 'image') return <ImagePanel obj={obj} />
+function round(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
+// Wraps an object so it can be grabbed and moved with controllers/hands. The
+// wrapper group owns the object's position + rotation; on release we write the
+// final transform back to the store so the agent's spatial memory stays correct.
+function GrabbableObject({ obj, children }: { obj: SceneObject; children: ReactNode }) {
+  const ref = useRef<Group>(null)
+
+  const apply = useCallback(
+    (state: HandleState<unknown>, target: Object3D) => {
+      target.position.copy(state.current.position)
+      target.quaternion.copy(state.current.quaternion)
+      if (state.last) {
+        const e = target.rotation
+        useScene.getState().update(obj.id, {
+          position: { x: round(target.position.x), y: round(target.position.y), z: round(target.position.z) },
+          rotation: [round(e.x), round(e.y), round(e.z)],
+        })
+      }
+    },
+    [obj.id],
+  )
+
   return (
-    <mesh position={obj.position} scale={obj.size} castShadow>
+    <group ref={ref} position={obj.position} rotation={obj.rotation ?? [0, 0, 0]}>
+      <Handle targetRef={ref} scale={false} multitouch={false} apply={apply}>
+        {children}
+      </Handle>
+    </group>
+  )
+}
+
+function ObjectView({ obj }: { obj: SceneObject }) {
+  let body: ReactNode
+  if (obj.kind === 'text') body = <TextBody obj={obj} />
+  else if (obj.kind === 'image') body = <ImageBody obj={obj} />
+  else body = <PrimitiveBody obj={obj} />
+  return <GrabbableObject obj={obj}>{body}</GrabbableObject>
+}
+
+function PrimitiveBody({ obj }: { obj: SceneObject }) {
+  return (
+    <mesh scale={obj.size} castShadow>
       <Primitive kind={obj.kind} />
       <meshStandardMaterial color={obj.color} roughness={0.5} metalness={0.1} />
     </mesh>
@@ -44,7 +86,7 @@ function Primitive({ kind }: { kind: ObjectKind }) {
   }
 }
 
-function ImagePanel({ obj }: { obj: SceneObject }) {
+function ImageBody({ obj }: { obj: SceneObject }) {
   const [texture, setTexture] = useState<Texture | null>(null)
   const [aspect, setAspect] = useState(1)
 
@@ -73,7 +115,7 @@ function ImagePanel({ obj }: { obj: SceneObject }) {
   if (!texture) {
     // Loading / generating placeholder.
     return (
-      <group position={obj.position}>
+      <group>
         <mesh>
           <planeGeometry args={[width, width * 0.66]} />
           <meshBasicMaterial color="#1b2030" transparent opacity={0.9} />
@@ -86,7 +128,7 @@ function ImagePanel({ obj }: { obj: SceneObject }) {
   }
 
   return (
-    <group position={obj.position}>
+    <group>
       <mesh>
         <planeGeometry args={[width, height]} />
         <meshBasicMaterial map={texture} side={DoubleSide} toneMapped={false} />
@@ -95,11 +137,11 @@ function ImagePanel({ obj }: { obj: SceneObject }) {
   )
 }
 
-function TextPanel({ obj }: { obj: SceneObject }) {
+function TextBody({ obj }: { obj: SceneObject }) {
   const text = obj.text ?? ''
   const width = Math.max(1.2, Math.min(4, text.length * 0.11))
   return (
-    <group position={obj.position}>
+    <group>
       <mesh>
         <planeGeometry args={[width, 0.85]} />
         <meshBasicMaterial color="#15151f" transparent opacity={0.85} />

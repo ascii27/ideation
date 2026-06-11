@@ -13,6 +13,7 @@
   "dependencies": {
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
+    "@react-three/handle": "^6.6.30",
     "@react-three/xr": "^6.6.9",
     "express": "^4.21.2",
     "openai": "^4.77.0",

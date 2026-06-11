@@ -1,6 +1,7 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { createXRStore, XR } from '@react-three/xr'
+import { createXRStore, XR, XROrigin } from '@react-three/xr'
+import { Vector3 } from 'three'
 import { Scene } from './xr/Scene'
 import { useRealtimeSession } from './agent/useRealtimeSession'
 import type { RealtimeStatus } from './agent/realtime'
@@ -8,10 +9,17 @@ import type { RealtimeStatus } from './agent/realtime'
 // A single XR store drives the session. The "Enter VR" button lives in normal
 // DOM (the headset browser shows it before you enter immersive mode); the Canvas
 // renders the same scene flat on desktop and immersively in the headset.
-const xrStore = createXRStore()
+// Teleport pointers are enabled for both controllers and hands.
+const xrStore = createXRStore({
+  controller: { teleportPointer: true },
+  hand: { teleportPointer: true },
+})
 
 export function App() {
   const { status, connect, disconnect } = useRealtimeSession()
+  // The player's origin (feet). Teleporting updates this; the XROrigin moves the
+  // whole player rig there.
+  const [playerPos, setPlayerPos] = useState(() => new Vector3())
 
   return (
     <>
@@ -23,7 +31,13 @@ export function App() {
       />
       <Canvas camera={{ position: [0, 1.6, 2.5], fov: 70 }}>
         <XR store={xrStore}>
-          <Scene status={status} onConnect={connect} onDisconnect={disconnect} />
+          <XROrigin position={playerPos} />
+          <Scene
+            status={status}
+            onConnect={connect}
+            onDisconnect={disconnect}
+            onTeleport={setPlayerPos}
+          />
         </XR>
       </Canvas>
     </>
