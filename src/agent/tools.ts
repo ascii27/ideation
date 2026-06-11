@@ -95,6 +95,24 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     type: 'function',
+    name: 'spawn_model',
+    description:
+      'Add a real 3D model from the object library — recognizable things like a chair, tree, car, animal, building, or tool. Prefer this over primitives when the person names an actual object. Describe what you want and the closest model is found and placed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'What to add, e.g. "wooden chair", "oak tree", "sports car", "duck".',
+        },
+        size: { type: 'number', description: 'Approx largest dimension in meters. Optional.' },
+        position,
+      },
+      required: ['query'],
+    },
+  },
+  {
+    type: 'function',
     name: 'create_image_panel',
     description:
       'Bring an image into the space as a floating panel. Either generate one from a description (prompt) or pull in a real image from a direct URL. Use this to make ideas visual — moodboards, references, sketches, examples.',

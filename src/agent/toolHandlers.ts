@@ -1,4 +1,5 @@
 import { useScene, type SpawnArgs, type UpdateArgs } from '../scene/store'
+import { findCatalogModel } from '../scene/modelCatalog'
 
 // Executes a tool call from the model against the scene store and returns a
 // JSON-serializable result (always including the updated scene summary so the
@@ -64,6 +65,48 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         return { ok: true, id: obj.id, scene: useScene.getState().summary() }
       } catch (err) {
         useScene.getState().update(obj.id, { text: 'image failed' })
+        return { ok: false, id: obj.id, error: String(err), scene: useScene.getState().summary() }
+      }
+    }
+
+    case 'spawn_model': {
+      const query = String((args as { query?: unknown }).query ?? '').trim()
+      if (!query) return { ok: false, error: 'A query is required.', scene: scene.summary() }
+      const sizeArg = (args as { size?: unknown }).size
+      const size = typeof sizeArg === 'number' ? sizeArg : undefined
+      const position = (args as unknown as SpawnArgs).position
+      const catalog = findCatalogModel(query)
+
+      // Placeholder appears immediately while the GLB loads.
+      const obj = scene.spawn({
+        kind: 'model',
+        size: size ?? catalog?.defaultSize,
+        label: catalog?.title ?? query,
+        position,
+        attribution: catalog?.attribution,
+      })
+      try {
+        let glb: string
+        let attribution = catalog?.attribution
+        if (catalog) {
+          glb = catalog.url
+        } else {
+          const resp = await fetch(`/api/models/search?q=${encodeURIComponent(query)}`)
+          const json = (await resp.json()) as {
+            results?: Array<{ glb: string; author: string; license: string; title: string }>
+            error?: string
+          }
+          if (!resp.ok) throw new Error(json.error ?? `search failed (${resp.status})`)
+          const top = json.results?.[0]
+          if (!top) throw new Error(`no model found for "${query}"`)
+          glb = top.glb
+          attribution = { author: top.author, license: top.license }
+        }
+        const src = `/api/models/proxy?url=${encodeURIComponent(glb)}`
+        useScene.getState().update(obj.id, { src, attribution })
+        return { ok: true, id: obj.id, scene: useScene.getState().summary() }
+      } catch (err) {
+        useScene.getState().update(obj.id, { text: 'model failed' })
         return { ok: false, id: obj.id, error: String(err), scene: useScene.getState().summary() }
       }
     }

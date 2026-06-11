@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Text } from '@react-three/drei'
+import { Text, useGLTF } from '@react-three/drei'
 import { Handle, type HandleState } from '@react-three/handle'
-import { DoubleSide, type Group, type Object3D, SRGBColorSpace, type Texture, TextureLoader } from 'three'
+import {
+  Box3,
+  DoubleSide,
+  type Group,
+  type Object3D,
+  SRGBColorSpace,
+  type Texture,
+  TextureLoader,
+  Vector3,
+} from 'three'
 import { useScene } from '../scene/store'
 import type { ObjectKind, SceneObject } from '../scene/types'
 
@@ -57,8 +66,61 @@ function ObjectView({ obj }: { obj: SceneObject }) {
   let body: ReactNode
   if (obj.kind === 'text') body = <TextBody obj={obj} />
   else if (obj.kind === 'image') body = <ImageBody obj={obj} />
+  else if (obj.kind === 'model') body = <ModelBody obj={obj} />
   else body = <PrimitiveBody obj={obj} />
   return <GrabbableObject obj={obj}>{body}</GrabbableObject>
+}
+
+function ModelBody({ obj }: { obj: SceneObject }) {
+  if (obj.src) {
+    return (
+      <Suspense fallback={<ModelPlaceholder size={obj.size} label="loading model…" />}>
+        <NormalizedModel src={obj.src} size={obj.size} />
+      </Suspense>
+    )
+  }
+  return (
+    <ModelPlaceholder size={obj.size} label={obj.text === 'model failed' ? 'model failed' : 'finding model…'} />
+  )
+}
+
+// Raw GLBs vary wildly in scale and pivot, so recenter on the bounding box and
+// uniform-scale so the largest dimension is roughly `size` meters.
+function NormalizedModel({ src, size }: { src: string; size: number }) {
+  const { scene } = useGLTF(src, true)
+  const normalized = useMemo(() => {
+    const clone = scene.clone(true)
+    const box = new Box3().setFromObject(clone)
+    const dims = new Vector3()
+    const center = new Vector3()
+    box.getSize(dims)
+    box.getCenter(center)
+    const maxDim = Math.max(dims.x, dims.y, dims.z) || 1
+    return { clone, center, scale: size / maxDim }
+  }, [scene, size])
+
+  return (
+    <group scale={normalized.scale}>
+      <primitive
+        object={normalized.clone}
+        position={[-normalized.center.x, -normalized.center.y, -normalized.center.z]}
+      />
+    </group>
+  )
+}
+
+function ModelPlaceholder({ size, label }: { size: number; label: string }) {
+  return (
+    <group>
+      <mesh>
+        <boxGeometry args={[size, size, size]} />
+        <meshStandardMaterial color="#222a3a" transparent opacity={0.45} wireframe />
+      </mesh>
+      <Text position={[0, size * 0.75, 0]} fontSize={0.1} color="#8a93b8" anchorX="center" anchorY="middle">
+        {label}
+      </Text>
+    </group>
+  )
 }
 
 function PrimitiveBody({ obj }: { obj: SceneObject }) {
