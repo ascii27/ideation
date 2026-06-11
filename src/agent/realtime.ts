@@ -3,6 +3,8 @@
 // proxies to OpenAI with the key + session config), and play the model's audio
 // reply through a hidden <audio> element — which routes to the headset speakers.
 
+import { attachAgentAudio, detachAgentAudio } from './agentAudio'
+
 export type RealtimeStatus = 'idle' | 'connecting' | 'connected' | 'error' | 'closed'
 
 export interface RealtimeSession {
@@ -35,6 +37,7 @@ export async function startRealtimeSession(opts: {
   document.body.appendChild(audioEl)
   pc.ontrack = (e) => {
     audioEl.srcObject = e.streams[0]
+    attachAgentAudio(e.streams[0])
   }
 
   // Microphone input.
@@ -97,6 +100,7 @@ export async function startRealtimeSession(opts: {
     }
     pc.close()
     mic.getTracks().forEach((t) => t.stop())
+    detachAgentAudio()
     audioEl.srcObject = null
     audioEl.remove()
   }
