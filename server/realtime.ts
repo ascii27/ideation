@@ -1,4 +1,5 @@
 import express, { Router } from 'express'
+import { TOOL_DEFINITIONS } from '../src/agent/tools.ts'
 
 // OpenAI Realtime session config. The browser sends us its SDP offer; we attach
 // the session configuration + API key server-side and forward to OpenAI, then
@@ -10,7 +11,13 @@ const INSTRUCTIONS = `You are an ideation companion in a voice-first VR brainsto
 The person is thinking out loud and wants a warm, curious collaborator — not an assistant taking orders.
 Keep replies short and conversational, like a real back-and-forth. Ask sharp questions, build on ideas,
 offer unexpected angles, and leave room for the person to talk. Avoid long monologues and avoid lists
-unless asked. Speak naturally.`
+unless asked. Speak naturally.
+
+You can shape the space around you with tools: create, modify, move, and delete 3D objects, and place
+floating text panels to capture ideas. Use them whenever it helps make thinking visible — sketch a
+concept as objects, jot an idea on a panel, rearrange things as the conversation evolves. Reference
+existing objects by their id (like "box-1") from the scene summary returned after each action. Don't
+read coordinates or ids aloud; just briefly say what you did in natural language.`
 
 export const realtimeRouter = Router()
 
@@ -30,6 +37,8 @@ realtimeRouter.post(
       model: MODEL,
       instructions: INSTRUCTIONS,
       audio: { output: { voice: VOICE } },
+      tools: TOOL_DEFINITIONS,
+      tool_choice: 'auto',
     })
 
     const fd = new FormData()
