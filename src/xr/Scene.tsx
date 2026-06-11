@@ -1,9 +1,11 @@
 import { Grid } from '@react-three/drei'
+import type { RealtimeStatus } from '../agent/realtime'
+import { StatusPanel } from './StatusPanel'
 
 // The blank brainstorming room: a softly lit floor with a reference grid and a
 // couple of anchor objects so you can sense scale and orientation once immersed.
 // Phase 2+ will populate this space from the agent-driven scene store.
-export function Scene() {
+export function Scene({ status }: { status: RealtimeStatus }) {
   return (
     <>
       <color attach="background" args={['#0a0a0f']} />
@@ -41,6 +43,8 @@ export function Scene() {
         <sphereGeometry args={[0.35, 32, 32]} />
         <meshStandardMaterial color="#7c9" roughness={0.5} />
       </mesh>
+
+      <StatusPanel status={status} />
     </>
   )
 }

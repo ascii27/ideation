@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import express from 'express'
+import { realtimeRouter } from './realtime.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -17,7 +18,9 @@ async function main() {
     res.json({ ok: true, env: isProd ? 'production' : 'development' })
   })
 
-  // Phase 1 will mount /api/session here for OpenAI Realtime token minting.
+  // OpenAI Realtime: browser POSTs its SDP offer to /api/session; the server
+  // forwards it (with session config + key) to OpenAI and returns the answer.
+  app.use('/api', realtimeRouter)
 
   if (isProd) {
     // Serve the built frontend and fall back to index.html for client routing.
