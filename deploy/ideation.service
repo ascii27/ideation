@@ -1,0 +1,18 @@
+[Unit]
+Description=Ideation WebXR brainstorming server
+After=network.target
+
+[Service]
+Type=simple
+User=exedev
+WorkingDirectory=/home/exedev/ideation
+# Loads OPENAI_API_KEY (and optional PORT) if the file exists; "-" makes it optional.
+EnvironmentFile=-/home/exedev/ideation/.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
