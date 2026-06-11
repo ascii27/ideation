@@ -2,8 +2,9 @@ import { useScene, type SpawnArgs, type UpdateArgs } from '../scene/store'
 
 // Executes a tool call from the model against the scene store and returns a
 // JSON-serializable result (always including the updated scene summary so the
-// model stays aware of what exists). Pure with respect to React — usable in tests.
-export function handleToolCall(name: string, args: Record<string, unknown>): unknown {
+// model stays aware of what exists). Mostly synchronous; image creation awaits a
+// backend request. Pure with respect to React — usable in tests.
+export async function handleToolCall(name: string, args: Record<string, unknown>): Promise<unknown> {
   const scene = useScene.getState()
 
   switch (name) {
@@ -34,6 +35,37 @@ export function handleToolCall(name: string, args: Record<string, unknown>): unk
         position: (args as unknown as SpawnArgs).position,
       })
       return { ok: true, id: obj.id, scene: useScene.getState().summary() }
+    }
+
+    case 'create_image_panel': {
+      const prompt = typeof args.prompt === 'string' ? args.prompt : undefined
+      const url = typeof args.url === 'string' ? args.url : undefined
+      if (!prompt && !url) {
+        return { ok: false, error: 'Provide a prompt or a url.', scene: scene.summary() }
+      }
+      // Placeholder appears immediately while the image loads/generates.
+      const obj = scene.spawn({
+        kind: 'image',
+        size: typeof args.size === 'number' ? args.size : undefined,
+        position: (args as unknown as SpawnArgs).position,
+        label: prompt ?? url,
+      })
+      try {
+        const resp = await fetch('/api/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, url }),
+        })
+        const json = (await resp.json()) as { dataUrl?: string; error?: string }
+        if (!resp.ok || !json.dataUrl) {
+          throw new Error(json.error ?? `image request failed (${resp.status})`)
+        }
+        useScene.getState().update(obj.id, { src: json.dataUrl })
+        return { ok: true, id: obj.id, scene: useScene.getState().summary() }
+      } catch (err) {
+        useScene.getState().update(obj.id, { text: 'image failed' })
+        return { ok: false, id: obj.id, error: String(err), scene: useScene.getState().summary() }
+      }
     }
 
     case 'list_scene':

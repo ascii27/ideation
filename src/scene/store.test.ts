@@ -28,6 +28,17 @@ describe('scene store', () => {
     expect(useScene.getState().update('nope-9', { color: 'red' })).toBeNull()
   })
 
+  it('persists an absolute position + rotation (as a grab does)', () => {
+    const o = useScene.getState().spawn({ kind: 'box' })
+    useScene.getState().update(o.id, {
+      position: { x: 1.5, y: 0.8, z: -2 },
+      rotation: [0, Math.PI / 2, 0],
+    })
+    const got = useScene.getState().objects[0]
+    expect(got.position).toEqual([1.5, 0.8, -2])
+    expect(got.rotation).toEqual([0, Math.PI / 2, 0])
+  })
+
   it('removes objects', () => {
     const o = useScene.getState().spawn({ kind: 'cone' })
     expect(useScene.getState().remove(o.id)).toBe(true)
@@ -40,11 +51,19 @@ describe('scene store', () => {
     useScene.getState().spawn({ kind: 'box', color: 'green', label: 'idea' })
     expect(useScene.getState().summary()).toContain('box-1 [idea]: green box')
   })
+
+  it('tracks an image src and reflects loading state in the summary', () => {
+    const o = useScene.getState().spawn({ kind: 'image', label: 'a cat' })
+    expect(useScene.getState().summary()).toContain('image-1 [a cat]: image (loading)')
+    useScene.getState().update(o.id, { src: 'data:image/png;base64,AAAA' })
+    expect(useScene.getState().objects[0].src).toBe('data:image/png;base64,AAAA')
+    expect(useScene.getState().summary()).toContain('image-1 [a cat]: image at')
+  })
 })
 
 describe('tool handlers', () => {
-  it('spawn_object creates an object and reports the scene', () => {
-    const r = handleToolCall('spawn_object', { kind: 'box', color: 'green' }) as {
+  it('spawn_object creates an object and reports the scene', async () => {
+    const r = (await handleToolCall('spawn_object', { kind: 'box', color: 'green' })) as {
       ok: boolean
       id: string
       scene: string
@@ -55,27 +74,33 @@ describe('tool handlers', () => {
     expect(useScene.getState().objects[0].color).toBe('green')
   })
 
-  it('update_object on a missing id reports an error', () => {
-    const r = handleToolCall('update_object', { id: 'ghost-1', color: 'red' }) as { ok: boolean }
+  it('update_object on a missing id reports an error', async () => {
+    const r = (await handleToolCall('update_object', { id: 'ghost-1', color: 'red' })) as { ok: boolean }
     expect(r.ok).toBe(false)
   })
 
-  it('create_text_panel makes a text object', () => {
-    const r = handleToolCall('create_text_panel', { text: 'hello world' }) as { ok: boolean }
+  it('create_text_panel makes a text object', async () => {
+    const r = (await handleToolCall('create_text_panel', { text: 'hello world' })) as { ok: boolean }
     expect(r.ok).toBe(true)
     const obj = useScene.getState().objects[0]
     expect(obj.kind).toBe('text')
     expect(obj.text).toBe('hello world')
   })
 
-  it('clear_scene empties the space', () => {
-    handleToolCall('spawn_object', { kind: 'box' })
-    handleToolCall('clear_scene', {})
+  it('create_image_panel without prompt or url is rejected', async () => {
+    const r = (await handleToolCall('create_image_panel', {})) as { ok: boolean }
+    expect(r.ok).toBe(false)
     expect(useScene.getState().objects).toHaveLength(0)
   })
 
-  it('reports unknown tools', () => {
-    const r = handleToolCall('frobnicate', {}) as { ok: boolean }
+  it('clear_scene empties the space', async () => {
+    await handleToolCall('spawn_object', { kind: 'box' })
+    await handleToolCall('clear_scene', {})
+    expect(useScene.getState().objects).toHaveLength(0)
+  })
+
+  it('reports unknown tools', async () => {
+    const r = (await handleToolCall('frobnicate', {})) as { ok: boolean }
     expect(r.ok).toBe(false)
   })
 })

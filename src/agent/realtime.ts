@@ -12,7 +12,10 @@ export interface RealtimeSession {
 }
 
 /** A function the model invoked. Return value is serialized back to the model. */
-export type ToolCallHandler = (name: string, args: Record<string, unknown>) => unknown
+export type ToolCallHandler = (
+  name: string,
+  args: Record<string, unknown>,
+) => unknown | Promise<unknown>
 
 interface FunctionCallItem {
   type: string
@@ -52,6 +55,31 @@ export async function startRealtimeSession(opts: {
     if (dc.readyState === 'open') dc.send(JSON.stringify(event))
   }
 
+  // Execute the model's function calls (handlers may be async, e.g. image
+  // generation), feed each result back, then ask the model to continue so it
+  // speaks the outcome.
+  const runToolCalls = async (calls: FunctionCallItem[]) => {
+    for (const call of calls) {
+      let args: Record<string, unknown> = {}
+      try {
+        args = call.arguments ? JSON.parse(call.arguments) : {}
+      } catch {
+        /* leave args empty on malformed JSON */
+      }
+      let output: unknown
+      try {
+        output = await onToolCall!(call.name ?? '', args)
+      } catch (err) {
+        output = { ok: false, error: String(err) }
+      }
+      send({
+        type: 'conversation.item.create',
+        item: { type: 'function_call_output', call_id: call.call_id, output: JSON.stringify(output) },
+      })
+    }
+    send({ type: 'response.create' })
+  }
+
   dc.onmessage = (e) => {
     let event: { type?: string; response?: { output?: FunctionCallItem[] } }
     try {
@@ -59,30 +87,9 @@ export async function startRealtimeSession(opts: {
     } catch {
       return
     }
-    // When a response completes, execute any function calls it produced and feed
-    // the results back, then ask the model to continue (so it speaks the outcome).
     if (event.type === 'response.done' && onToolCall) {
       const calls = (event.response?.output ?? []).filter((o) => o.type === 'function_call')
-      if (calls.length === 0) return
-      for (const call of calls) {
-        let args: Record<string, unknown> = {}
-        try {
-          args = call.arguments ? JSON.parse(call.arguments) : {}
-        } catch {
-          /* leave args empty on malformed JSON */
-        }
-        let output: unknown
-        try {
-          output = onToolCall(call.name ?? '', args)
-        } catch (err) {
-          output = { ok: false, error: String(err) }
-        }
-        send({
-          type: 'conversation.item.create',
-          item: { type: 'function_call_output', call_id: call.call_id, output: JSON.stringify(output) },
-        })
-      }
-      send({ type: 'response.create' })
+      if (calls.length > 0) void runToolCalls(calls)
     }
   }
 

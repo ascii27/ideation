@@ -43,7 +43,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     type: 'function',
     name: 'update_object',
     description:
-      'Modify an existing object: recolor, resize, or move it. Reference it by its id (e.g. "box-1") from the scene summary.',
+      'Modify an existing object: recolor, resize, move, or rotate it. Reference it by its id (e.g. "box-1") from the scene summary.',
     parameters: {
       type: 'object',
       properties: {
@@ -56,6 +56,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           type: 'object',
           description: 'Relative move in meters added to the current position.',
           properties: { x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' } },
+        },
+        rotation: {
+          type: 'array',
+          description: 'Absolute Euler rotation in radians as [x, y, z].',
+          items: { type: 'number' },
+          minItems: 3,
+          maxItems: 3,
         },
       },
       required: ['id'],
@@ -84,6 +91,27 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         position,
       },
       required: ['text'],
+    },
+  },
+  {
+    type: 'function',
+    name: 'create_image_panel',
+    description:
+      'Bring an image into the space as a floating panel. Either generate one from a description (prompt) or pull in a real image from a direct URL. Use this to make ideas visual — moodboards, references, sketches, examples.',
+    parameters: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'A description to generate an image from. Provide either this or url.',
+        },
+        url: {
+          type: 'string',
+          description: 'A direct https URL to an existing image. Provide either this or prompt.',
+        },
+        size: { type: 'number', description: 'Panel width in meters. Default 1.5.' },
+        position,
+      },
     },
   },
   {
