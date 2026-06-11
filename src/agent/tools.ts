@@ -88,6 +88,27 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     type: 'function',
+    name: 'create_image_panel',
+    description:
+      'Bring an image into the space as a floating panel. Either generate one from a description (prompt) or pull in a real image from a direct URL. Use this to make ideas visual — moodboards, references, sketches, examples.',
+    parameters: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'A description to generate an image from. Provide either this or url.',
+        },
+        url: {
+          type: 'string',
+          description: 'A direct https URL to an existing image. Provide either this or prompt.',
+        },
+        size: { type: 'number', description: 'Panel width in meters. Default 1.5.' },
+        position,
+      },
+    },
+  },
+  {
+    type: 'function',
     name: 'list_scene',
     description: 'Get a summary of everything currently in the space and where it is.',
     parameters: { type: 'object', properties: {} },

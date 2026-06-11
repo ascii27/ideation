@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { Text } from '@react-three/drei'
+import { DoubleSide, SRGBColorSpace, type Texture, TextureLoader } from 'three'
 import { useScene } from '../scene/store'
 import type { ObjectKind, SceneObject } from '../scene/types'
 
@@ -17,6 +19,7 @@ export function SceneObjects() {
 
 function ObjectView({ obj }: { obj: SceneObject }) {
   if (obj.kind === 'text') return <TextPanel obj={obj} />
+  if (obj.kind === 'image') return <ImagePanel obj={obj} />
   return (
     <mesh position={obj.position} scale={obj.size} castShadow>
       <Primitive kind={obj.kind} />
@@ -39,6 +42,57 @@ function Primitive({ kind }: { kind: ObjectKind }) {
     default:
       return <boxGeometry args={[1, 1, 1]} />
   }
+}
+
+function ImagePanel({ obj }: { obj: SceneObject }) {
+  const [texture, setTexture] = useState<Texture | null>(null)
+  const [aspect, setAspect] = useState(1)
+
+  useEffect(() => {
+    setTexture(null)
+    if (!obj.src) return
+    let cancelled = false
+    new TextureLoader().load(obj.src, (tex) => {
+      if (cancelled) {
+        tex.dispose()
+        return
+      }
+      tex.colorSpace = SRGBColorSpace
+      const img = tex.image as { width: number; height: number }
+      if (img.width && img.height) setAspect(img.width / img.height)
+      setTexture(tex)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [obj.src])
+
+  const width = obj.size
+  const height = width / aspect
+
+  if (!texture) {
+    // Loading / generating placeholder.
+    return (
+      <group position={obj.position}>
+        <mesh>
+          <planeGeometry args={[width, width * 0.66]} />
+          <meshBasicMaterial color="#1b2030" transparent opacity={0.9} />
+        </mesh>
+        <Text position={[0, 0, 0.01]} fontSize={0.1} color="#8a93b8" anchorX="center" anchorY="middle">
+          {obj.text === 'image failed' ? 'image failed' : 'generating…'}
+        </Text>
+      </group>
+    )
+  }
+
+  return (
+    <group position={obj.position}>
+      <mesh>
+        <planeGeometry args={[width, height]} />
+        <meshBasicMaterial map={texture} side={DoubleSide} toneMapped={false} />
+      </mesh>
+    </group>
+  )
 }
 
 function TextPanel({ obj }: { obj: SceneObject }) {

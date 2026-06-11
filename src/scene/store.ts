@@ -7,6 +7,7 @@ export interface SpawnArgs {
   size?: number
   label?: string
   text?: string
+  src?: string
   position?: { x: number; y: number; z: number }
 }
 
@@ -15,6 +16,7 @@ export interface UpdateArgs {
   size?: number
   label?: string
   text?: string
+  src?: string
   /** Absolute position. */
   position?: { x: number; y: number; z: number }
   /** Relative move, added to the current position. */
@@ -57,10 +59,11 @@ export const useScene = create<SceneState>((set, get) => ({
       position: args.position
         ? [args.position.x, args.position.y, args.position.z]
         : defaultPosition(objects.length),
-      size: args.size ?? (args.kind === 'text' ? 1 : 0.5),
+      size: args.size ?? (args.kind === 'text' ? 1 : args.kind === 'image' ? 1.5 : 0.5),
       color: args.color ?? '#99aadd',
       label: args.label,
       text: args.text,
+      src: args.src,
     }
     set({ objects: [...objects, obj], counters: { ...counters, [args.kind]: n } })
     return obj
@@ -76,6 +79,7 @@ export const useScene = create<SceneState>((set, get) => ({
     if (patch.size !== undefined) next.size = patch.size
     if (patch.label !== undefined) next.label = patch.label
     if (patch.text !== undefined) next.text = patch.text
+    if (patch.src !== undefined) next.src = patch.src
     if (patch.position) {
       next.position = [patch.position.x, patch.position.y, patch.position.z]
     }
@@ -106,9 +110,12 @@ export const useScene = create<SceneState>((set, get) => ({
     if (objects.length === 0) return 'The space is empty.'
     const parts = objects.map((o) => {
       const p = o.position.map((v) => v.toFixed(1)).join(', ')
-      const txt = o.kind === 'text' ? ` "${o.text ?? ''}"` : ''
       const lbl = o.label ? ` [${o.label}]` : ''
-      return `${o.id}${lbl}: ${o.color} ${o.kind}${txt} at (${p})`
+      let desc: string
+      if (o.kind === 'text') desc = `text "${o.text ?? ''}"`
+      else if (o.kind === 'image') desc = o.src ? 'image' : 'image (loading)'
+      else desc = `${o.color} ${o.kind}`
+      return `${o.id}${lbl}: ${desc} at (${p})`
     })
     return `${objects.length} object(s): ${parts.join('; ')}`
   },

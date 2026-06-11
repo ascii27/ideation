@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import express from 'express'
 import { realtimeRouter } from './realtime.ts'
+import { imageRouter } from './image.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -21,6 +22,9 @@ async function main() {
   // OpenAI Realtime: browser POSTs its SDP offer to /api/session; the server
   // forwards it (with session config + key) to OpenAI and returns the answer.
   app.use('/api', realtimeRouter)
+
+  // Image panels: generate (gpt-image-1) or fetch-by-URL, returned as a data URL.
+  app.use('/api', imageRouter)
 
   if (isProd) {
     // Serve the built frontend and fall back to index.html for client routing.
