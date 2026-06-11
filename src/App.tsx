@@ -23,7 +23,7 @@ export function App() {
       />
       <Canvas camera={{ position: [0, 1.6, 2.5], fov: 70 }}>
         <XR store={xrStore}>
-          <Scene status={status} />
+          <Scene status={status} onConnect={connect} onDisconnect={disconnect} />
         </XR>
       </Canvas>
     </>
