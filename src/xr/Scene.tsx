@@ -1,7 +1,10 @@
 import { Grid } from '@react-three/drei'
 import { TeleportTarget } from '@react-three/xr'
+import { Physics, CuboidCollider } from '@react-three/rapier'
 import type { Vector3 } from 'three'
 import type { RealtimeStatus } from '../agent/realtime'
+import { useScene } from '../scene/store'
+import { FLOOR_GROUPS } from '../scene/geometry'
 import { AgentAvatar } from './AgentAvatar'
 import { SceneObjects } from './SceneObjects'
 import { CreditsPanel } from './CreditsPanel'
@@ -20,6 +23,8 @@ export function Scene({
   onDisconnect: () => void
   onTeleport: (point: Vector3) => void
 }) {
+  const gravity = useScene((s) => s.physics.gravity)
+
   return (
     <>
       <color attach="background" args={['#0a0a0f']} />
@@ -54,8 +59,15 @@ export function Scene({
         infiniteGrid
       />
 
-      {/* Objects the agent creates and manipulates by voice. */}
-      <SceneObjects />
+      {/* Physics world. Gravity toggles via the agent's set_physics tool; when off
+          the gravity vector is zeroed so solids hover in place. Only SceneObjects'
+          solids are rigid bodies; the floor is a fixed collider coplanar with the grid. */}
+      <Physics gravity={gravity ? [0, -9.81, 0] : [0, 0, 0]}>
+        {/* Solid ground at y=0 — a thin fixed slab just below the floor plane so
+            object bases rest exactly at y=0. */}
+        <CuboidCollider args={[40, 0.1, 40]} position={[0, -0.1, 0]} collisionGroups={FLOOR_GROUPS} />
+        <SceneObjects />
+      </Physics>
 
       {/* Attribution for openly-licensed models. */}
       <CreditsPanel />
