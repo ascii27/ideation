@@ -86,6 +86,34 @@ function rotateXZ(x: number, z: number, a: number): [number, number] {
   return [c * x + s * z, -s * x + c * z]
 }
 
+/** Camera placement to frame an object for a snapshot: returns the camera position
+ *  and the look-at target (the object center, slightly raised). The camera sits back
+ *  from the object toward the viewer (the head's XZ side), high enough and far enough
+ *  that an object of the given size roughly fills a ~50° FOV. Pure — no three types. */
+export function framingCamera(
+  objPos: [number, number, number],
+  objSize: number,
+  headPos: [number, number, number],
+): { position: [number, number, number]; target: [number, number, number] } {
+  const dist = Math.max(0.6, objSize * 2.2)
+  // Direction from the object toward the head, on the floor plane (fallback +z).
+  let dx = headPos[0] - objPos[0]
+  let dz = headPos[2] - objPos[2]
+  const len = Math.hypot(dx, dz)
+  if (len < 1e-4) {
+    dx = 0
+    dz = 1
+  } else {
+    dx /= len
+    dz /= len
+  }
+  const center: [number, number, number] = [objPos[0], objPos[1] + objSize * 0.15, objPos[2]]
+  return {
+    position: [center[0] + dx * dist, center[1] + objSize * 0.4, center[2] + dz * dist],
+    target: center,
+  }
+}
+
 /** New player (feet) position so that snapping the view yaw from `yaw` to
  *  `newYaw` pivots around the head's world position `head` (keeps head XZ fixed).
  *  Feet y is preserved. Used by snap-turn so the player rotates in place. */

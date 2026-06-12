@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { solidHalfHeight, isSolidKind, OBJECT_GROUPS, OBJECT_GROUPS_NO_COLLIDE, FLOOR_GROUPS } from './geometry'
-import { effectiveScale, scaledColliderArgs, pivotPlayerPosition } from './geometry'
+import { effectiveScale, scaledColliderArgs, pivotPlayerPosition, framingCamera } from './geometry'
 
 describe('solidHalfHeight', () => {
   it('returns the y half-extent so the base sits at the floor', () => {
@@ -62,6 +62,35 @@ describe('per-axis scale helpers', () => {
     const c = scaledColliderArgs('cylinder', [2, 1, 2])
     // halfHeight 0.5*y=0.5 ; radius 0.5*mean(2,2)=1
     expect(c).toEqual({ shape: 'cylinder', args: [0.5, 1] })
+  })
+})
+
+describe('framingCamera', () => {
+  it('targets the object center, slightly raised', () => {
+    const { target } = framingCamera([2, 0.5, -3], 1, [0, 1.6, 0])
+    expect(target[0]).toBeCloseTo(2)
+    expect(target[1]).toBeCloseTo(0.5 + 0.15) // raised by size*0.15
+    expect(target[2]).toBeCloseTo(-3)
+  })
+
+  it('places the camera on the head side of the object, backed off by ~size', () => {
+    // Head at origin, object 4m forward (-z). Camera should sit between them (z > -4).
+    const { position } = framingCamera([0, 0, -4], 1, [0, 1.6, 0])
+    expect(position[2]).toBeGreaterThan(-4) // toward the head (+z side)
+    expect(position[1]).toBeGreaterThan(0) // above center
+  })
+
+  it('scales the back-off distance with object size', () => {
+    const near = framingCamera([0, 0, -4], 0.5, [0, 1.6, 0]).position
+    const far = framingCamera([0, 0, -4], 3, [0, 1.6, 0]).position
+    // Bigger object → camera further from it (its z is closer to the head at +z).
+    expect(far[2]).toBeGreaterThan(near[2])
+  })
+
+  it('falls back to +z when the head coincides with the object', () => {
+    const { position } = framingCamera([1, 0, 1], 1, [1, 0, 1])
+    expect(Number.isFinite(position[0])).toBe(true)
+    expect(Number.isFinite(position[2])).toBe(true)
   })
 })
 
