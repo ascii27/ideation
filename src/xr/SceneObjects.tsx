@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Text, useGLTF } from '@react-three/drei'
 import { Handle, type HandleState } from '@react-three/handle'
+import { TeleportTarget } from '@react-three/xr'
 import {
   RigidBody,
   type RapierRigidBody,
@@ -26,6 +27,7 @@ import {
   type Texture,
   TextureLoader,
   Vector3,
+  type Vector3 as ThreeVector3,
 } from 'three'
 import { useScene } from '../scene/store'
 import { presetToMaterial } from '../scene/materials'
@@ -57,7 +59,7 @@ function logGlowCap(count: number): void {
 
 // Renders every object in the agent-driven scene store. Re-renders automatically
 // as tool calls mutate the store.
-export function SceneObjects() {
+export function SceneObjects({ onTeleport }: { onTeleport: (point: ThreeVector3) => void }) {
   const objects = useScene((s) => s.objects)
   const glowing = objects.filter((o) => (o.glow ?? 0) > 0)
   const lightIds = new Set(glowing.slice(0, MAX_GLOW_LIGHTS).map((o) => o.id))
@@ -67,7 +69,7 @@ export function SceneObjects() {
   return (
     <>
       {objects.map((o) => (
-        <ObjectView key={o.id} obj={o} castGlowLight={lightIds.has(o.id)} />
+        <ObjectView key={o.id} obj={o} castGlowLight={lightIds.has(o.id)} onTeleport={onTeleport} />
       ))}
     </>
   )
@@ -107,9 +109,17 @@ function GrabbableObject({ obj, children }: { obj: SceneObject; children: ReactN
   )
 }
 
-function ObjectView({ obj, castGlowLight }: { obj: SceneObject; castGlowLight: boolean }) {
+function ObjectView({
+  obj,
+  castGlowLight,
+  onTeleport,
+}: {
+  obj: SceneObject
+  castGlowLight: boolean
+  onTeleport: (point: ThreeVector3) => void
+}) {
   // The ground is static scenery — rendered directly (no grab/physics wrapper).
-  if (obj.kind === 'ground') return <GroundBody obj={obj} />
+  if (obj.kind === 'ground') return <GroundBody obj={obj} onTeleport={onTeleport} />
 
   let body: ReactNode
   if (obj.kind === 'text') body = <TextBody obj={obj} />
@@ -144,19 +154,21 @@ function ObjectView({ obj, castGlowLight }: { obj: SceneObject; castGlowLight: b
 // (just above the floor so it covers the reference grid), with a tiled texture or
 // a flat color. Not grabbable and outside physics — it's scenery, not an object
 // you bump into (solids still rest on the physics floor at y=0).
-function GroundBody({ obj }: { obj: SceneObject }) {
+function GroundBody({ obj, onTeleport }: { obj: SceneObject; onTeleport: (point: ThreeVector3) => void }) {
   const repeat = obj.textureRepeat ?? Math.min(40, Math.max(8, Math.round(obj.size / 4)))
   const texture = usePrimitiveTexture(obj.textureSrc, repeat)
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={obj.position} receiveShadow>
-      <planeGeometry args={[obj.size, obj.size]} />
-      <meshStandardMaterial
-        map={texture ?? undefined}
-        color={texture ? '#ffffff' : obj.color}
-        roughness={0.95}
-        metalness={0}
-      />
-    </mesh>
+    <TeleportTarget onTeleport={onTeleport}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={obj.position} receiveShadow>
+        <planeGeometry args={[obj.size, obj.size]} />
+        <meshStandardMaterial
+          map={texture ?? undefined}
+          color={texture ? '#ffffff' : obj.color}
+          roughness={0.95}
+          metalness={0}
+        />
+      </mesh>
+    </TeleportTarget>
   )
 }
 

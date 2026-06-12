@@ -68,7 +68,7 @@ export function Scene({
         {/* Solid ground at y=0 — a thin fixed slab just below the floor plane so
             object bases rest exactly at y=0. */}
         <CuboidCollider args={[40, 0.1, 40]} position={[0, -0.1, 0]} collisionGroups={FLOOR_GROUPS} />
-        <SceneObjects />
+        <SceneObjects onTeleport={onTeleport} />
       </Physics>
 
       {/* Attribution for openly-licensed models. */}
