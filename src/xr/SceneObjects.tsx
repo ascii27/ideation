@@ -29,7 +29,13 @@ import {
 } from 'three'
 import { useScene } from '../scene/store'
 import { presetToMaterial } from '../scene/materials'
-import { isSolidKind, OBJECT_GROUPS, OBJECT_GROUPS_NO_COLLIDE } from '../scene/geometry'
+import {
+  isSolidKind,
+  OBJECT_GROUPS,
+  OBJECT_GROUPS_NO_COLLIDE,
+  effectiveScale,
+  scaledColliderArgs,
+} from '../scene/geometry'
 import type { ObjectKind, SceneObject } from '../scene/types'
 
 // Renders every object in the agent-driven scene store. Re-renders automatically
@@ -221,9 +227,12 @@ function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNod
             loaded/placeholder mesh — an auto-hull built from the centered loading
             placeholder ejected the body upward by ~size/2 and floated it. */}
         {isModel ? (
-          <CuboidCollider args={[obj.size * 0.35, obj.size * 0.5, obj.size * 0.35]} position={[0, obj.size * 0.5, 0]} />
+          (() => {
+            const [ex, ey, ez] = effectiveScale(obj.size, obj.scale)
+            return <CuboidCollider args={[ex * 0.35, ey * 0.5, ez * 0.35]} position={[0, ey * 0.5, 0]} />
+          })()
         ) : (
-          <PrimitiveCollider kind={obj.kind} size={obj.size} />
+          <PrimitiveCollider kind={obj.kind} size={obj.size} scale={obj.scale} />
         )}
         {/* targetRef points at the static group below; the pickable mesh (children)
             is bound as the handle surface and stays inside the body. */}
@@ -242,19 +251,18 @@ function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNod
 // on the body origin, so with the body placed at solidHalfHeight the base lands
 // exactly on the floor. Rapier collider args: Cuboid = half-extents; Ball =
 // radius; Cylinder/Cone = [halfHeight, radius].
-function PrimitiveCollider({ kind, size }: { kind: ObjectKind; size: number }) {
-  switch (kind) {
-    case 'sphere':
-      return <BallCollider args={[0.6 * size]} />
+function PrimitiveCollider({ kind, size, scale }: { kind: ObjectKind; size: number; scale?: [number, number, number] }) {
+  const spec = scaledColliderArgs(kind, effectiveScale(size, scale))
+  switch (spec.shape) {
+    case 'ball':
+      return <BallCollider args={spec.args} />
     case 'cylinder':
-      return <CylinderCollider args={[0.5 * size, 0.5 * size]} />
+      return <CylinderCollider args={spec.args} />
     case 'cone':
-      return <ConeCollider args={[0.5 * size, 0.6 * size]} />
-    case 'torus':
-      return <CuboidCollider args={[0.7 * size, 0.7 * size, 0.2 * size]} />
-    case 'box':
+      return <ConeCollider args={spec.args} />
+    case 'cuboid':
     default:
-      return <CuboidCollider args={[0.5 * size, 0.5 * size, 0.5 * size]} />
+      return <CuboidCollider args={spec.args} />
   }
 }
 
@@ -262,7 +270,7 @@ function ModelBody({ obj }: { obj: SceneObject }) {
   if (obj.src) {
     return (
       <Suspense fallback={<ModelPlaceholder size={obj.size} label="loading model…" />}>
-        <NormalizedModel src={obj.src} size={obj.size} textureSrc={obj.textureSrc} textureRepeat={obj.textureRepeat} />
+        <NormalizedModel src={obj.src} size={obj.size} scale={obj.scale} textureSrc={obj.textureSrc} textureRepeat={obj.textureRepeat} />
       </Suspense>
     )
   }
@@ -279,11 +287,13 @@ function ModelBody({ obj }: { obj: SceneObject }) {
 function NormalizedModel({
   src,
   size,
+  scale,
   textureSrc,
   textureRepeat,
 }: {
   src: string
   size: number
+  scale?: [number, number, number]
   textureSrc?: string
   textureRepeat?: number
 }) {
@@ -330,8 +340,9 @@ function NormalizedModel({
     })
   }, [normalized, texture])
 
+  const s = scale ?? [1, 1, 1]
   return (
-    <group scale={normalized.scale}>
+    <group scale={[normalized.scale * s[0], normalized.scale * s[1], normalized.scale * s[2]]}>
       <primitive
         object={normalized.clone}
         position={[normalized.offset.x, normalized.offset.y, normalized.offset.z]}
@@ -357,12 +368,13 @@ function ModelPlaceholder({ size, label }: { size: number; label: string }) {
 }
 
 function PrimitiveBody({ obj }: { obj: SceneObject }) {
+  const e = effectiveScale(obj.size, obj.scale)
   const texture = usePrimitiveTexture(obj.textureSrc, obj.textureRepeat)
   const preset = presetToMaterial(obj.materialPreset)
   const metalness = obj.metalness ?? preset.metalness
   const roughness = obj.roughness ?? preset.roughness
   return (
-    <mesh scale={obj.size} castShadow>
+    <mesh scale={e} castShadow>
       <Primitive kind={obj.kind} />
       <meshPhysicalMaterial
         color={texture ? '#ffffff' : obj.color}
