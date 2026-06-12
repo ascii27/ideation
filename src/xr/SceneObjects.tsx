@@ -183,7 +183,13 @@ function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNod
       <RigidBody
         ref={bodyRef}
         colliders={isModel ? 'hull' : false}
-        collisionGroups={collision ? OBJECT_GROUPS : OBJECT_GROUPS_NO_COLLIDE}
+        // Models collide with the floor ONLY (never each other): a tree's convex
+        // hull encloses its whole canopy, so mutual collisions would shove tightly
+        // placed models apart and float them to uneven heights. Their rotation is
+        // also locked so trees/furniture rest upright instead of tipping on the
+        // irregular hull. Primitives collide normally, honoring the collision toggle.
+        collisionGroups={isModel ? OBJECT_GROUPS_NO_COLLIDE : collision ? OBJECT_GROUPS : OBJECT_GROUPS_NO_COLLIDE}
+        lockRotations={isModel}
         position={obj.position}
         rotation={obj.rotation ?? [0, 0, 0]}
         canSleep
