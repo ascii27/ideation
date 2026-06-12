@@ -8,7 +8,7 @@ beforeEach(() => {
   useScene.getState().clear()
   useScene.getState().setPhysics({ gravity: true, collision: true })
   useScene.getState().setEnvironment({ skyColor: '#0a0a0f', ambientIntensity: 0.4, fog: true })
-  useScene.setState({ activities: [] })
+  useScene.setState({ activities: [], activitySeq: 0 })
 })
 
 describe('scene store', () => {

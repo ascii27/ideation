@@ -61,6 +61,23 @@ export type ColliderSpec =
 // (sphere r=0.6, cylinder/cone h=1 r=0.5/0.6, torus outer=0.7 tube~0.2, box=1).
 // A sphere/cylinder/cone has no exact non-uniform collider in rapier, so radial
 // dims use the mean of the relevant axes — a documented approximation.
+export function scaledColliderArgs(kind: ObjectKind, e: [number, number, number]): ColliderSpec {
+  const [ex, ey, ez] = e
+  switch (kind) {
+    case 'sphere':
+      return { shape: 'ball', args: [0.6 * ((ex + ey + ez) / 3)] }
+    case 'cylinder':
+      return { shape: 'cylinder', args: [0.5 * ey, 0.5 * ((ex + ez) / 2)] }
+    case 'cone':
+      return { shape: 'cone', args: [0.5 * ey, 0.6 * ((ex + ez) / 2)] }
+    case 'torus':
+      return { shape: 'cuboid', args: [0.7 * ex, 0.7 * ey, 0.2 * ez] }
+    case 'box':
+    default:
+      return { shape: 'cuboid', args: [0.5 * ex, 0.5 * ey, 0.5 * ez] }
+  }
+}
+
 // Rotate a vector (x,z) about the Y axis by `a` radians (three's Y-rotation
 // convention: x' = cos·x + sin·z, z' = -sin·x + cos·z).
 function rotateXZ(x: number, z: number, a: number): [number, number] {
@@ -84,21 +101,4 @@ export function pivotPlayerPosition(
   const [wx, wz] = rotateXZ(lx, lz, newYaw)
   // Feet = head - rotated offset, keeping head fixed.
   return [head[0] - wx, playerPos[1], head[2] - wz]
-}
-
-export function scaledColliderArgs(kind: ObjectKind, e: [number, number, number]): ColliderSpec {
-  const [ex, ey, ez] = e
-  switch (kind) {
-    case 'sphere':
-      return { shape: 'ball', args: [0.6 * ((ex + ey + ez) / 3)] }
-    case 'cylinder':
-      return { shape: 'cylinder', args: [0.5 * ey, 0.5 * ((ex + ez) / 2)] }
-    case 'cone':
-      return { shape: 'cone', args: [0.5 * ey, 0.6 * ((ex + ez) / 2)] }
-    case 'torus':
-      return { shape: 'cuboid', args: [0.7 * ex, 0.7 * ey, 0.2 * ez] }
-    case 'box':
-    default:
-      return { shape: 'cuboid', args: [0.5 * ex, 0.5 * ey, 0.5 * ez] }
-  }
 }
