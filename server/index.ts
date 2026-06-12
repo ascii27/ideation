@@ -6,6 +6,7 @@ import { imageRouter } from './image.ts'
 import { modelsRouter } from './models.ts'
 import { textureRouter } from './texture.ts'
 import { logRouter } from './log.ts'
+import { visionRouter } from './vision.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -28,6 +29,9 @@ async function main() {
 
   // Image panels: generate (gpt-image-1) or fetch-by-URL, returned as a data URL.
   app.use('/api', imageRouter)
+
+  // Vision: describe a screenshot of the 3D scene (look_at_scene tool).
+  app.use('/api', visionRouter)
 
   // Object library: Poly Pizza search + same-origin GLB proxy.
   app.use('/api', modelsRouter)
