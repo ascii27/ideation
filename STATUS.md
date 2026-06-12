@@ -32,7 +32,14 @@ npm run build          # vite build -> dist/
 
 ./scripts/deploy.sh    # rsync to armchair-sparkle, npm install + build on the VM,
                        # restart the systemd service, health check
+./scripts/logs.sh      # fetch the VM service logs (journalctl -u ideation).
+                       # e.g. ./scripts/logs.sh 200 texture  | ./scripts/logs.sh -f
 ```
+
+- The client posts agent tool calls to `/api/log`, which the server prints to
+  stdout (captured by journalctl) — so `./scripts/logs.sh` shows what the agent did
+  (tool calls, texture lookups/fallbacks, image generations, errors) from outside
+  the headset.
 
 - `npm run dev` runs the Express server with Vite in middleware mode (single origin + HMR).
 - Deploy is the normal loop: edit locally → `./scripts/deploy.sh` → open the exe.xyz URL.
