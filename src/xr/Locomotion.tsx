@@ -66,9 +66,10 @@ export function Locomotion({
       // right = up × forward = (fz, 0, -fx)
       const rX = fwd.z
       const rZ = -fwd.x
-      // Push up (yAxis < 0) = forward; push right (xAxis > 0) = right.
-      let dx = fwd.x * -ly + rX * lx
-      let dz = fwd.z * -ly + rZ * lx
+      // Push up = forward; push right = right. (yAxis sign matches this controller:
+      // pushing the stick forward moves you toward where you're looking.)
+      let dx = fwd.x * ly + rX * lx
+      let dz = fwd.z * ly + rZ * lx
       const dLen = Math.hypot(dx, dz) || 1
       dx = (dx / dLen) * HOP_DISTANCE
       dz = (dz / dLen) * HOP_DISTANCE
