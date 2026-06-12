@@ -9,6 +9,8 @@ interface MaterialFields {
   materialPreset?: MaterialPreset
   metalness?: number
   roughness?: number
+  scale?: [number, number, number]
+  glow?: number
 }
 
 export interface SpawnArgs extends MaterialFields {
@@ -118,6 +120,8 @@ export const useScene = create<SceneState>((set, get) => ({
       materialPreset: args.materialPreset,
       metalness: args.metalness,
       roughness: args.roughness,
+      scale: args.scale,
+      glow: args.glow,
     }
     set({ objects: [...objects, obj], counters: { ...counters, [args.kind]: n } })
     return obj
@@ -140,6 +144,8 @@ export const useScene = create<SceneState>((set, get) => ({
     if (patch.materialPreset !== undefined) next.materialPreset = patch.materialPreset
     if (patch.metalness !== undefined) next.metalness = patch.metalness
     if (patch.roughness !== undefined) next.roughness = patch.roughness
+    if (patch.scale !== undefined) next.scale = patch.scale
+    if (patch.glow !== undefined) next.glow = patch.glow
     if (patch.rotation !== undefined) next.rotation = patch.rotation
     if (patch.position) {
       next.position = [patch.position.x, patch.position.y, patch.position.z]
@@ -191,7 +197,9 @@ export const useScene = create<SceneState>((set, get) => ({
       else if (o.kind === 'ground') desc = o.textureSrc ? 'ground (textured)' : `${o.color} ground`
       else {
         const finish = o.textureSrc ? ' textured' : o.materialPreset ? ` ${o.materialPreset}` : ''
-        desc = `${o.color} ${o.kind}${finish}`
+        const stretched = o.scale && (o.scale[0] !== o.scale[1] || o.scale[1] !== o.scale[2]) ? ' stretched' : ''
+        const glowing = o.glow && o.glow > 0 ? ' glowing' : ''
+        desc = `${o.color} ${o.kind}${finish}${stretched}${glowing}`
       }
       return `${o.id}${lbl}: ${desc} at (${p})`
     })

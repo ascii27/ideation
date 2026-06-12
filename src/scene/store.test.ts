@@ -264,6 +264,24 @@ describe('environment state', () => {
   })
 })
 
+describe('scale & glow', () => {
+  it('persists per-axis scale and glow on spawn and update', () => {
+    const o = useScene.getState().spawn({ kind: 'box', scale: [2, 1, 0.5], glow: 1.5 })
+    expect(o.scale).toEqual([2, 1, 0.5])
+    expect(o.glow).toBe(1.5)
+    const u = useScene.getState().update(o.id, { scale: [1, 3, 1], glow: 0 })
+    expect(u?.scale).toEqual([1, 3, 1])
+    expect(u?.glow).toBe(0)
+  })
+
+  it('summary reflects stretched and glowing objects', () => {
+    useScene.getState().spawn({ kind: 'box', color: 'red', scale: [3, 1, 1], glow: 2 })
+    const s = useScene.getState().summary()
+    expect(s).toContain('stretched')
+    expect(s).toContain('glowing')
+  })
+})
+
 describe('model catalog', () => {
   it('matches curated models by keyword', () => {
     expect(findCatalogModel('a rubber duck')?.title).toBe('Duck')

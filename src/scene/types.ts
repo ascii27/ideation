@@ -70,4 +70,8 @@ export interface SceneObject {
   /** Explicit PBR overrides (take precedence over the preset). */
   metalness?: number
   roughness?: number
+  /** Per-axis stretch/squish multipliers on top of `size`. Default [1,1,1]. */
+  scale?: [number, number, number]
+  /** Light emission strength. 0/undefined = none. >0 = emissive + a point light. */
+  glow?: number
 }
