@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Attribution, ObjectKind, PhysicsState, SceneObject } from './types'
+import type { Attribution, EnvironmentState, ObjectKind, PhysicsState, SceneObject } from './types'
 import type { MaterialPreset } from './materials'
 import { isSolidKind, solidHalfHeight } from './geometry'
 
@@ -53,6 +53,10 @@ interface SceneState {
   physics: PhysicsState
   /** Update one or both physics flags; omitted flags are left unchanged. */
   setPhysics: (patch: Partial<PhysicsState>) => PhysicsState
+  /** Scene-global environment (sky color, ambient light, fog). */
+  environment: EnvironmentState
+  /** Update one or more environment fields; omitted fields are left unchanged. */
+  setEnvironment: (patch: Partial<EnvironmentState>) => EnvironmentState
 }
 
 // The ground surface sits centered on the origin, just above y=0 so it covers the
@@ -80,6 +84,7 @@ export const useScene = create<SceneState>((set, get) => ({
   objects: [],
   counters: {},
   physics: { gravity: true, collision: true },
+  environment: { skyColor: '#0a0a0f', ambientIntensity: 0.4, fog: true },
 
   spawn: (args) => {
     const { counters, objects } = get()
@@ -164,6 +169,12 @@ export const useScene = create<SceneState>((set, get) => ({
   setPhysics: (patch) => {
     const next: PhysicsState = { ...get().physics, ...patch }
     set({ physics: next })
+    return next
+  },
+
+  setEnvironment: (patch) => {
+    const next: EnvironmentState = { ...get().environment, ...patch }
+    set({ environment: next })
     return next
   },
 

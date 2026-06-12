@@ -7,6 +7,7 @@ import { presetToMaterial } from './materials'
 beforeEach(() => {
   useScene.getState().clear()
   useScene.getState().setPhysics({ gravity: true, collision: true })
+  useScene.getState().setEnvironment({ skyColor: '#0a0a0f', ambientIntensity: 0.4, fog: true })
 })
 
 describe('scene store', () => {
@@ -223,6 +224,31 @@ describe('set_physics tool', () => {
     const r = (await handleToolCall('set_physics', {})) as { ok: boolean; physics: unknown }
     expect(r.ok).toBe(true)
     expect(useScene.getState().physics).toEqual({ gravity: true, collision: true })
+  })
+})
+
+describe('environment state', () => {
+  it('defaults to the prior hardcoded scene values', () => {
+    expect(useScene.getState().environment).toEqual({
+      skyColor: '#0a0a0f',
+      ambientIntensity: 0.4,
+      fog: true,
+    })
+  })
+
+  it('setEnvironment merges partial patches, leaving other fields unchanged', () => {
+    useScene.getState().setEnvironment({ skyColor: '#88bbff' })
+    expect(useScene.getState().environment).toEqual({
+      skyColor: '#88bbff',
+      ambientIntensity: 0.4,
+      fog: true,
+    })
+    useScene.getState().setEnvironment({ ambientIntensity: 1.2, fog: false })
+    expect(useScene.getState().environment).toEqual({
+      skyColor: '#88bbff',
+      ambientIntensity: 1.2,
+      fog: false,
+    })
   })
 })
 

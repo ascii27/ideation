@@ -31,6 +31,16 @@ export interface PhysicsState {
   collision: boolean
 }
 
+/** Scene-global environment, controlled by the agent's set_environment tool. */
+export interface EnvironmentState {
+  /** Background + fog color (CSS string). */
+  skyColor: string
+  /** Ambient light intensity (~0..3). Raise to brighten dark/distant models. */
+  ambientIntensity: number
+  /** Whether distance fog is drawn (fog color follows skyColor). */
+  fog: boolean
+}
+
 export interface SceneObject {
   id: string
   kind: ObjectKind
