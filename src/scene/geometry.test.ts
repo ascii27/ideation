@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { solidHalfHeight, isSolidKind, OBJECT_GROUPS, OBJECT_GROUPS_NO_COLLIDE, FLOOR_GROUPS } from './geometry'
-import { effectiveScale, scaledColliderArgs } from './geometry'
+import { effectiveScale, scaledColliderArgs, pivotPlayerPosition } from './geometry'
 
 describe('solidHalfHeight', () => {
   it('returns the y half-extent so the base sits at the floor', () => {
@@ -62,5 +62,23 @@ describe('per-axis scale helpers', () => {
     const c = scaledColliderArgs('cylinder', [2, 1, 2])
     // halfHeight 0.5*y=0.5 ; radius 0.5*mean(2,2)=1
     expect(c).toEqual({ shape: 'cylinder', args: [0.5, 1] })
+  })
+})
+
+describe('snap-turn pivot', () => {
+  it('keeps the head world XZ fixed when only yaw changes (no head offset)', () => {
+    // Head directly over the origin: pivoting in place must not move the feet.
+    const next = pivotPlayerPosition([0, 0, 0], 0, [0, 1.6, 0], Math.PI / 4)
+    expect(next[0]).toBeCloseTo(0)
+    expect(next[2]).toBeCloseTo(0)
+    expect(next[1]).toBe(0) // feet y unchanged
+  })
+
+  it('compensates feet position when the head is offset from the feet', () => {
+    // Head 1m forward (-z) of the feet, yaw 0 → rotate 180°. The feet must swing
+    // to the opposite side so the head stays at (0,_,-1).
+    const next = pivotPlayerPosition([0, 0, 0], 0, [0, 1.6, -1], Math.PI)
+    expect(next[0]).toBeCloseTo(0)
+    expect(next[2]).toBeCloseTo(-2)
   })
 })
