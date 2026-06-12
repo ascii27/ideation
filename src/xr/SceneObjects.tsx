@@ -2,11 +2,14 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import type { ReactNode } from 'react'
 import { Text, useGLTF } from '@react-three/drei'
 import { Handle, type HandleState } from '@react-three/handle'
+import { RigidBody, type RapierRigidBody } from '@react-three/rapier'
 import {
   Box3,
   DoubleSide,
+  Euler,
   type Group,
   type Object3D,
+  Quaternion,
   RepeatWrapping,
   SRGBColorSpace,
   type Texture,
@@ -15,6 +18,7 @@ import {
 } from 'three'
 import { useScene } from '../scene/store'
 import { presetToMaterial } from '../scene/materials'
+import { isSolidKind, OBJECT_GROUPS, OBJECT_GROUPS_NO_COLLIDE } from '../scene/geometry'
 import type { ObjectKind, SceneObject } from '../scene/types'
 
 // Renders every object in the agent-driven scene store. Re-renders automatically
@@ -70,7 +74,89 @@ function ObjectView({ obj }: { obj: SceneObject }) {
   else if (obj.kind === 'image') body = <ImageBody obj={obj} />
   else if (obj.kind === 'model') body = <ModelBody obj={obj} />
   else body = <PrimitiveBody obj={obj} />
+
+  if (isSolidKind(obj.kind)) {
+    return <PhysicsObject obj={obj}>{body}</PhysicsObject>
+  }
   return <GrabbableObject obj={obj}>{body}</GrabbableObject>
+}
+
+// Rapier body-type numeric constants (avoid importing the enum name).
+const BODY_DYNAMIC = 0
+const BODY_KINEMATIC_POSITION = 2
+
+// A solid object as a Rapier rigid body that rests on the floor and collides.
+// Grabbing drives it kinematically via @react-three/handle; on release it returns
+// to dynamic and its resting transform is written back to the store (agent memory).
+// Collision toggling swaps the collider interaction groups; gravity toggling is
+// handled globally by the <Physics> gravity prop in Scene.tsx.
+function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNode }) {
+  const bodyRef = useRef<RapierRigidBody>(null)
+  const handleRef = useRef<Group>(null)
+  const collision = useScene((s) => s.physics.collision)
+  const gravity = useScene((s) => s.physics.gravity)
+
+  // Models auto-fit a convex hull; primitives use exact analytic colliders.
+  const colliders = obj.kind === 'model' ? 'hull' : 'cuboid'
+
+  // When the agent moves/repositions the object (store position changes outside of
+  // a grab), teleport the rigid body to match and clear its velocity.
+  useEffect(() => {
+    const body = bodyRef.current
+    if (!body) return
+    body.setTranslation({ x: obj.position[0], y: obj.position[1], z: obj.position[2] }, true)
+    const r = obj.rotation ?? [0, 0, 0]
+    const q = new Quaternion().setFromEuler(new Euler(r[0], r[1], r[2]))
+    body.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true)
+    body.setLinvel({ x: 0, y: 0, z: 0 }, true)
+    body.setAngvel({ x: 0, y: 0, z: 0 }, true)
+  }, [obj.position, obj.rotation])
+
+  const apply = useCallback(
+    (state: HandleState<unknown>) => {
+      const body = bodyRef.current
+      if (!body) return
+      if (state.first) {
+        body.setBodyType(BODY_KINEMATIC_POSITION, true)
+      }
+      const p = state.current.position
+      const q = state.current.quaternion
+      body.setNextKinematicTranslation({ x: p.x, y: p.y, z: p.z })
+      body.setNextKinematicRotation({ x: q.x, y: q.y, z: q.z, w: q.w })
+      if (state.last) {
+        body.setBodyType(BODY_DYNAMIC, true)
+        if (!gravity) {
+          body.setLinvel({ x: 0, y: 0, z: 0 }, true)
+          body.setAngvel({ x: 0, y: 0, z: 0 }, true)
+        }
+        const t = body.translation()
+        const rot = body.rotation()
+        const e = new Euler().setFromQuaternion(new Quaternion(rot.x, rot.y, rot.z, rot.w))
+        useScene.getState().update(obj.id, {
+          position: { x: round(t.x), y: round(t.y), z: round(t.z) },
+          rotation: [round(e.x), round(e.y), round(e.z)],
+        })
+      }
+    },
+    [obj.id, gravity],
+  )
+
+  return (
+    <RigidBody
+      ref={bodyRef}
+      colliders={colliders}
+      collisionGroups={collision ? OBJECT_GROUPS : OBJECT_GROUPS_NO_COLLIDE}
+      position={obj.position}
+      rotation={obj.rotation ?? [0, 0, 0]}
+      canSleep
+    >
+      <group ref={handleRef}>
+        <Handle targetRef={handleRef} scale={false} multitouch={false} apply={apply}>
+          {children}
+        </Handle>
+      </group>
+    </RigidBody>
+  )
 }
 
 function ModelBody({ obj }: { obj: SceneObject }) {
@@ -86,8 +172,9 @@ function ModelBody({ obj }: { obj: SceneObject }) {
   )
 }
 
-// Raw GLBs vary wildly in scale and pivot, so recenter on the bounding box and
-// uniform-scale so the largest dimension is roughly `size` meters.
+// Raw GLBs vary wildly in scale and pivot, so recenter on the bounding box in x/z,
+// and sit the model's BASE at y=0 (so a rigid body at y=0 rests on the floor).
+// Uniform-scale so the largest dimension is roughly `size` meters.
 function NormalizedModel({ src, size }: { src: string; size: number }) {
   const { scene } = useGLTF(src, true)
   const normalized = useMemo(() => {
@@ -98,14 +185,19 @@ function NormalizedModel({ src, size }: { src: string; size: number }) {
     box.getSize(dims)
     box.getCenter(center)
     const maxDim = Math.max(dims.x, dims.y, dims.z) || 1
-    return { clone, center, scale: size / maxDim }
+    const scale = size / maxDim
+    return {
+      clone,
+      scale,
+      offset: new Vector3(-center.x, -box.min.y, -center.z),
+    }
   }, [scene, size])
 
   return (
     <group scale={normalized.scale}>
       <primitive
         object={normalized.clone}
-        position={[-normalized.center.x, -normalized.center.y, -normalized.center.z]}
+        position={[normalized.offset.x, normalized.offset.y, normalized.offset.z]}
       />
     </group>
   )
