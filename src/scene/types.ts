@@ -13,6 +13,14 @@ export interface Attribution {
   url?: string
 }
 
+/** Global physics toggles, controlled by the agent's set_physics tool. */
+export interface PhysicsState {
+  /** When false, solids float in place (no gravity). */
+  gravity: boolean
+  /** When false, solids pass through each other (they still rest on the floor). */
+  collision: boolean
+}
+
 export interface SceneObject {
   id: string
   kind: ObjectKind

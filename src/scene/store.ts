@@ -1,6 +1,7 @@
 import { create } from 'zustand'
-import type { Attribution, ObjectKind, SceneObject } from './types'
+import type { Attribution, ObjectKind, PhysicsState, SceneObject } from './types'
 import type { MaterialPreset } from './materials'
+import { isSolidKind, solidHalfHeight } from './geometry'
 
 interface MaterialFields {
   textureSrc?: string
@@ -48,14 +49,22 @@ interface SceneState {
   summary: () => string
   /** Unique asset credits for models currently in the scene. */
   credits: () => string[]
+  /** Global physics toggles (gravity + collision). */
+  physics: PhysicsState
+  /** Update one or both physics flags; omitted flags are left unchanged. */
+  setPhysics: (patch: Partial<PhysicsState>) => PhysicsState
 }
 
 // When no explicit position is given, place new objects in a loose arc in front
-// of the user (who stands near the origin looking toward -z).
-function defaultPosition(index: number): [number, number, number] {
+// of the user (who stands near the origin looking toward -z). Solids rest on the
+// floor (base at y=0); panels float at eye-ish height.
+function defaultPosition(index: number, kind: ObjectKind, size: number): [number, number, number] {
   const angle = -0.6 + 0.35 * index
   const radius = 2.2
-  return [round(Math.sin(angle) * radius), 1.3, round(-Math.cos(angle) * radius)]
+  const x = round(Math.sin(angle) * radius)
+  const z = round(-Math.cos(angle) * radius)
+  const y = isSolidKind(kind) ? round(solidHalfHeight(kind, size)) : 1.3
+  return [x, y, z]
 }
 
 function round(n: number): number {
@@ -65,17 +74,21 @@ function round(n: number): number {
 export const useScene = create<SceneState>((set, get) => ({
   objects: [],
   counters: {},
+  physics: { gravity: true, collision: true },
 
   spawn: (args) => {
     const { counters, objects } = get()
     const n = (counters[args.kind] ?? 0) + 1
+    const size =
+      args.size ??
+      (args.kind === 'text' ? 1 : args.kind === 'image' ? 1.5 : args.kind === 'model' ? 0.7 : 0.5)
     const obj: SceneObject = {
       id: `${args.kind}-${n}`,
       kind: args.kind,
       position: args.position
         ? [args.position.x, args.position.y, args.position.z]
-        : defaultPosition(objects.length),
-      size: args.size ?? (args.kind === 'text' ? 1 : args.kind === 'image' ? 1.5 : args.kind === 'model' ? 0.7 : 0.5),
+        : defaultPosition(objects.length, args.kind, size),
+      size,
       rotation: args.rotation,
       color: args.color ?? '#99aadd',
       label: args.label,
@@ -134,6 +147,12 @@ export const useScene = create<SceneState>((set, get) => ({
   },
 
   clear: () => set({ objects: [], counters: {} }),
+
+  setPhysics: (patch) => {
+    const next: PhysicsState = { ...get().physics, ...patch }
+    set({ physics: next })
+    return next
+  },
 
   summary: () => {
     const { objects } = get()

@@ -6,6 +6,7 @@ import { presetToMaterial } from './materials'
 
 beforeEach(() => {
   useScene.getState().clear()
+  useScene.getState().setPhysics({ gravity: true, collision: true })
 })
 
 describe('scene store', () => {
@@ -136,6 +137,41 @@ describe('materials & texturing', () => {
 
     const miss = (await handleToolCall('apply_texture', { id: 'ghost-1', prompt: 'brick' })) as { ok: boolean }
     expect(miss.ok).toBe(false)
+  })
+})
+
+describe('physics state + resting spawn', () => {
+  it('defaults to gravity and collision on', () => {
+    expect(useScene.getState().physics).toEqual({ gravity: true, collision: true })
+  })
+
+  it('setPhysics flips flags independently, leaving the other unchanged', () => {
+    useScene.getState().setPhysics({ gravity: false })
+    expect(useScene.getState().physics).toEqual({ gravity: false, collision: true })
+    useScene.getState().setPhysics({ collision: false })
+    expect(useScene.getState().physics).toEqual({ gravity: false, collision: false })
+    useScene.getState().setPhysics({ gravity: true })
+    expect(useScene.getState().physics).toEqual({ gravity: true, collision: false })
+  })
+
+  it('spawns a primitive resting on the floor (base at y=0)', () => {
+    const box = useScene.getState().spawn({ kind: 'box', size: 0.5 })
+    expect(box.position[1]).toBeCloseTo(0.25)
+  })
+
+  it('spawns a model with its base at the floor (y=0)', () => {
+    const m = useScene.getState().spawn({ kind: 'model', size: 0.7 })
+    expect(m.position[1]).toBeCloseTo(0)
+  })
+
+  it('keeps panels floating (unchanged default height)', () => {
+    const t = useScene.getState().spawn({ kind: 'text', text: 'hi' })
+    expect(t.position[1]).toBeCloseTo(1.3)
+  })
+
+  it('honors an explicit position for solids', () => {
+    const box = useScene.getState().spawn({ kind: 'box', position: { x: 0, y: 2, z: -1 } })
+    expect(box.position).toEqual([0, 2, -1])
   })
 })
 
