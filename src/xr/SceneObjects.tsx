@@ -182,20 +182,26 @@ function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNod
     <>
       <RigidBody
         ref={bodyRef}
-        colliders={isModel ? 'hull' : false}
-        // Models collide with the floor ONLY (never each other): a tree's convex
-        // hull encloses its whole canopy, so mutual collisions would shove tightly
-        // placed models apart and float them to uneven heights. Their rotation is
-        // also locked so trees/furniture rest upright instead of tipping on the
-        // irregular hull. Primitives collide normally, honoring the collision toggle.
+        colliders={false}
+        // Models collide with the floor ONLY (never each other) so tightly placed
+        // models don't shove each other to uneven heights; their rotation is also
+        // locked so trees/furniture rest upright. Primitives collide normally,
+        // honoring the collision toggle.
         collisionGroups={isModel ? OBJECT_GROUPS_NO_COLLIDE : collision ? OBJECT_GROUPS : OBJECT_GROUPS_NO_COLLIDE}
         lockRotations={isModel}
         position={obj.position}
         rotation={obj.rotation ?? [0, 0, 0]}
         canSleep
       >
-        {/* Exact analytic collider for primitives (models use the hull above). */}
-        {!isModel && <PrimitiveCollider kind={obj.kind} size={obj.size} />}
+        {/* Explicit colliders, base pinned to y=0. Models get a stable box sized
+            from `size` (NOT an auto-hull) so the collider doesn't depend on the
+            loaded/placeholder mesh — an auto-hull built from the centered loading
+            placeholder ejected the body upward by ~size/2 and floated it. */}
+        {isModel ? (
+          <CuboidCollider args={[obj.size * 0.35, obj.size * 0.5, obj.size * 0.35]} position={[0, obj.size * 0.5, 0]} />
+        ) : (
+          <PrimitiveCollider kind={obj.kind} size={obj.size} />
+        )}
         {/* targetRef points at the static group below; the pickable mesh (children)
             is bound as the handle surface and stays inside the body. */}
         <Handle targetRef={targetRef} scale={false} multitouch={false} apply={apply}>
@@ -312,13 +318,15 @@ function NormalizedModel({
 }
 
 function ModelPlaceholder({ size, label }: { size: number; label: string }) {
+  // Sit the placeholder ON the floor (base at y=0), matching where the loaded
+  // model lands, so the shape doesn't visibly jump up when it swaps in.
   return (
     <group>
-      <mesh>
+      <mesh position={[0, size / 2, 0]}>
         <boxGeometry args={[size, size, size]} />
         <meshStandardMaterial color="#222a3a" transparent opacity={0.45} wireframe />
       </mesh>
-      <Text position={[0, size * 0.75, 0]} fontSize={0.1} color="#8a93b8" anchorX="center" anchorY="middle">
+      <Text position={[0, size * 1.15, 0]} fontSize={0.1} color="#8a93b8" anchorX="center" anchorY="middle">
         {label}
       </Text>
     </group>
