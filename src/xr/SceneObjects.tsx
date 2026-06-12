@@ -38,14 +38,36 @@ import {
 } from '../scene/geometry'
 import type { ObjectKind, SceneObject } from '../scene/types'
 
+// Glow point-light tuning. WebGL has a finite dynamic-light budget, so cap how
+// many glowing objects actually cast light; extras stay emissive-only.
+const MAX_GLOW_LIGHTS = 6
+const glowLightIntensity = (glow: number) => glow * 4
+const glowLightDistance = (glow: number) => 3 + glow * 3
+
+let loggedGlowCap = 0
+function logGlowCap(count: number): void {
+  if (typeof window === 'undefined' || count === loggedGlowCap) return
+  loggedGlowCap = count
+  void fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event: 'glow_light_cap', data: { glowing: count, cap: MAX_GLOW_LIGHTS } }),
+  }).catch(() => {})
+}
+
 // Renders every object in the agent-driven scene store. Re-renders automatically
 // as tool calls mutate the store.
 export function SceneObjects() {
   const objects = useScene((s) => s.objects)
+  const glowing = objects.filter((o) => (o.glow ?? 0) > 0)
+  const lightIds = new Set(glowing.slice(0, MAX_GLOW_LIGHTS).map((o) => o.id))
+  if (glowing.length > MAX_GLOW_LIGHTS) {
+    logGlowCap(glowing.length)
+  }
   return (
     <>
       {objects.map((o) => (
-        <ObjectView key={o.id} obj={o} />
+        <ObjectView key={o.id} obj={o} castGlowLight={lightIds.has(o.id)} />
       ))}
     </>
   )
@@ -85,7 +107,7 @@ function GrabbableObject({ obj, children }: { obj: SceneObject; children: ReactN
   )
 }
 
-function ObjectView({ obj }: { obj: SceneObject }) {
+function ObjectView({ obj, castGlowLight }: { obj: SceneObject; castGlowLight: boolean }) {
   // The ground is static scenery — rendered directly (no grab/physics wrapper).
   if (obj.kind === 'ground') return <GroundBody obj={obj} />
 
@@ -95,10 +117,27 @@ function ObjectView({ obj }: { obj: SceneObject }) {
   else if (obj.kind === 'model') body = <ModelBody obj={obj} />
   else body = <PrimitiveBody obj={obj} />
 
-  if (isSolidKind(obj.kind)) {
-    return <PhysicsObject obj={obj}>{body}</PhysicsObject>
-  }
-  return <GrabbableObject obj={obj}>{body}</GrabbableObject>
+  const wrapped = isSolidKind(obj.kind) ? (
+    <PhysicsObject obj={obj}>{body}</PhysicsObject>
+  ) : (
+    <GrabbableObject obj={obj}>{body}</GrabbableObject>
+  )
+
+  const glow = obj.glow ?? 0
+  return (
+    <>
+      {wrapped}
+      {castGlowLight && glow > 0 && (
+        <pointLight
+          position={obj.position}
+          color={obj.color}
+          intensity={glowLightIntensity(glow)}
+          distance={glowLightDistance(glow)}
+          decay={2}
+        />
+      )}
+    </>
+  )
 }
 
 // A large flat ground plane the scene sits on. Lies horizontal at the object's y
@@ -270,7 +309,15 @@ function ModelBody({ obj }: { obj: SceneObject }) {
   if (obj.src) {
     return (
       <Suspense fallback={<ModelPlaceholder size={obj.size} label="loading model…" />}>
-        <NormalizedModel src={obj.src} size={obj.size} scale={obj.scale} textureSrc={obj.textureSrc} textureRepeat={obj.textureRepeat} />
+        <NormalizedModel
+          src={obj.src}
+          size={obj.size}
+          scale={obj.scale}
+          glow={obj.glow}
+          color={obj.color}
+          textureSrc={obj.textureSrc}
+          textureRepeat={obj.textureRepeat}
+        />
       </Suspense>
     )
   }
@@ -288,12 +335,16 @@ function NormalizedModel({
   src,
   size,
   scale,
+  glow,
+  color,
   textureSrc,
   textureRepeat,
 }: {
   src: string
   size: number
   scale?: [number, number, number]
+  glow?: number
+  color: string
   textureSrc?: string
   textureRepeat?: number
 }) {
@@ -335,10 +386,19 @@ function NormalizedModel({
           sm.map = texture
           sm.color?.set('#ffffff') // let the texture provide the color
         }
+        if (glow && glow > 0) {
+          sm.emissive?.set(color)
+          sm.emissiveIntensity = glow
+          sm.toneMapped = false
+        } else {
+          sm.emissive?.set('#000000')
+          sm.emissiveIntensity = 0
+          sm.toneMapped = true
+        }
         sm.needsUpdate = true
       }
     })
-  }, [normalized, texture])
+  }, [normalized, texture, glow, color])
 
   const s = scale ?? [1, 1, 1]
   return (
@@ -385,6 +445,9 @@ function PrimitiveBody({ obj }: { obj: SceneObject }) {
         clearcoat={preset.clearcoat}
         transparent={preset.transmission > 0}
         ior={1.5}
+        emissive={obj.glow ? obj.color : '#000000'}
+        emissiveIntensity={obj.glow ?? 0}
+        toneMapped={!obj.glow}
       />
     </mesh>
   )
