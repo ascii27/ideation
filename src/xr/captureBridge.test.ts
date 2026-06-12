@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { registerCapturer, captureScene } from './sceneCapture'
+import { registerCapturer, captureScene } from './captureBridge'
 
 describe('sceneCapture bridge', () => {
   afterEach(() => registerCapturer(null))
