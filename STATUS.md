@@ -1,6 +1,12 @@
 # Ideation — Project Status & Handoff
 
-_Last updated: 2026-06-12. This file is a handoff so a fresh session can read it and pick up._
+_Last updated: 2026-06-13. This file is a handoff so a fresh session can read it and pick up._
+
+> **Current state (2026-06-13):** QoL-A (#10) and QoL-B (#11) are **merged to main**. **Agent
+> vision (`look_at_scene`, PR #12) is open and deployed**, awaiting in-VR verification + merge —
+> verify it in the Quest, then merge. After that, **Effort B (external data integrations)** is the
+> agreed next effort. (The "Phases completed" section below lists the vision phase as if merged; it
+> becomes true once #12 lands.)
 
 ## What this is
 
@@ -199,6 +205,10 @@ All PRs (#1–#7) are merged. **Effort A = PR #8** (`effort-a-positioning-physic
 
 ## Not done yet / next steps
 
+- **Verify + merge agent vision (PR #12)** — `look_at_scene` is implemented and deployed; confirm
+  the in-VR capture path works on the Quest (the `gl.xr.enabled` toggle in `src/xr/SceneCapture.tsx`
+  is the risk spot — if a snapshot is black/garbled, capture only when not presenting or use a second
+  renderer), then merge.
 - **"Basics" polish — DONE** (QoL-A + QoL-B above): sky color, ambient light, object glow,
   non-uniform transform, thumbstick locomotion (hop + snap-turn), teleport-loss fix, and the
   **status HUD** (which closes out the earlier "loading/status indicators for async ops"
@@ -244,11 +254,14 @@ All PRs (#1–#7) are merged. **Effort A = PR #8** (`effort-a-positioning-physic
 ## First things to do in a new session
 
 1. Read this file and skim `src/scene/store.ts`, `src/agent/tools.ts`, `src/agent/toolHandlers.ts`,
-   `src/xr/SceneObjects.tsx` (physics/grab/ground), `src/scene/geometry.ts`.
-2. `git status` / `git log --oneline -8` to confirm you're current on `main` (Effort A / PR #8 merged).
+   `src/xr/SceneObjects.tsx` (physics/grab/ground), `src/scene/geometry.ts`. For the newest work also
+   skim `src/xr/SceneCapture.tsx` + `src/xr/captureBridge.ts` + `server/vision.ts` (agent vision).
+2. `git status` / `git log --oneline -8`. Confirm whether **PR #12 (agent vision)** is merged yet;
+   if not, it's the open branch `agent-vision-look-at-scene` awaiting in-VR verification.
 3. If changing behavior: branch off `main`, build with `npm run typecheck && npm test && npm run build`,
    then `./scripts/deploy.sh` and verify at https://armchair-sparkle.exe.xyz/. Use `./scripts/logs.sh`
    to watch what the agent actually did on the server while testing.
-4. **Next up: a few more "basics" polish fixes** (ask the user what's on the list), likely including
-   loading/status indicators. Then **Effort B (external data integrations)**. Phase 4 (persistence)
-   remains the larger roadmap item.
+4. **Next up: verify + merge PR #12 (agent vision)** if still open. Then **Effort B (external data
+   integrations)** — pull internet content into VR as virtual objects (e.g. Tokyo's 7-day weather);
+   brainstorm it as its own spec. Phase 4 (persistence) remains the larger roadmap item, and a later
+   idea is on-the-fly **scripted object movement/animation** (agent writes motion rules at runtime).
