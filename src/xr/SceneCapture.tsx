@@ -89,13 +89,18 @@ export function SceneCapture() {
       cam.updateMatrixWorld()
 
       // --- Render to the offscreen target (XR-safe) ---
+      // Restore gl.xr.enabled in a finally so a render error can't leave the
+      // headset renderer disabled for the rest of the session.
       const prevXr = gl.xr.enabled
       gl.xr.enabled = false
-      gl.setRenderTarget(target)
-      gl.render(scene, cam)
-      gl.readRenderTargetPixels(target, 0, 0, SIZE, SIZE, pixels)
-      gl.setRenderTarget(null)
-      gl.xr.enabled = prevXr
+      try {
+        gl.setRenderTarget(target)
+        gl.render(scene, cam)
+        gl.readRenderTargetPixels(target, 0, 0, SIZE, SIZE, pixels)
+        gl.setRenderTarget(null)
+      } finally {
+        gl.xr.enabled = prevXr
+      }
 
       // --- Blit into a 2D canvas, flipping Y (render-target rows are bottom-up) ---
       const img = ctx.createImageData(SIZE, SIZE)
