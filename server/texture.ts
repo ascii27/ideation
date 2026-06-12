@@ -55,9 +55,11 @@ textureRouter.get('/texture', async (req, res) => {
     const assets = await getAssets()
     const slug = pickSlug(assets, q)
     if (!slug) {
+      console.log(`[texture] miss q="${q}" → 404 (no Poly Haven match)`)
       res.status(404).json({ error: `no texture found for "${q}"` })
       return
     }
+    console.log(`[texture] q="${q}" → slug="${slug}"`)
     const fr = await fetch(`https://api.polyhaven.com/files/${slug}`)
     if (!fr.ok) {
       res.status(502).json({ error: 'texture files lookup failed' })

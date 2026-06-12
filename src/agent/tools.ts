@@ -72,7 +72,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     type: 'function',
     name: 'apply_texture',
     description:
-      'Apply a surface texture to a primitive object (box/sphere/etc.). Either generate the texture from a description (prompt), use an image URL, or pull a real CC0 PBR material from the Poly Haven library (polyhaven). Reference the object by id.',
+      'Apply a surface texture to any object — a primitive (box/sphere/etc.) or a 3D model (e.g. a boulder, a chair). Either generate the texture from a description (prompt), use an image URL, or name a real material for the Poly Haven CC0 library (polyhaven); if Poly Haven has no match the texture is generated from that name automatically. Reference the object by id.',
     parameters: {
       type: 'object',
       properties: {

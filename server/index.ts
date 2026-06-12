@@ -5,6 +5,7 @@ import { realtimeRouter } from './realtime.ts'
 import { imageRouter } from './image.ts'
 import { modelsRouter } from './models.ts'
 import { textureRouter } from './texture.ts'
+import { logRouter } from './log.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -33,6 +34,9 @@ async function main() {
 
   // Textures: Poly Haven CC0 PBR diffuse maps as same-origin data URLs.
   app.use('/api', textureRouter)
+
+  // Client→server log bridge (surfaces agent tool calls into journalctl).
+  app.use('/api', logRouter)
 
   if (isProd) {
     // Serve the built frontend and fall back to index.html for client routing.

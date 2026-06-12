@@ -3,12 +3,22 @@ import type { ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Text, useGLTF } from '@react-three/drei'
 import { Handle, type HandleState } from '@react-three/handle'
-import { RigidBody, type RapierRigidBody } from '@react-three/rapier'
+import {
+  RigidBody,
+  type RapierRigidBody,
+  BallCollider,
+  ConeCollider,
+  CuboidCollider,
+  CylinderCollider,
+} from '@react-three/rapier'
 import {
   Box3,
   DoubleSide,
   Euler,
   type Group,
+  type Material,
+  type Mesh,
+  type MeshStandardMaterial,
   type Object3D,
   Quaternion,
   RepeatWrapping,
@@ -106,8 +116,10 @@ function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNod
   const collision = useScene((s) => s.physics.collision)
   const gravity = useScene((s) => s.physics.gravity)
 
-  // Models auto-fit a convex hull; primitives use exact analytic colliders.
-  const colliders = obj.kind === 'model' ? 'hull' : 'cuboid'
+  // Models auto-fit a convex hull; primitives get an exact analytic collider
+  // (see PrimitiveCollider) so they touch visually and rest flush on the floor
+  // instead of on an oversized boxy padding.
+  const isModel = obj.kind === 'model'
 
   // When the agent moves/repositions the object (store position changes outside of
   // a grab), teleport the rigid body to match and clear its velocity.
@@ -170,12 +182,14 @@ function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNod
     <>
       <RigidBody
         ref={bodyRef}
-        colliders={colliders}
+        colliders={isModel ? 'hull' : false}
         collisionGroups={collision ? OBJECT_GROUPS : OBJECT_GROUPS_NO_COLLIDE}
         position={obj.position}
         rotation={obj.rotation ?? [0, 0, 0]}
         canSleep
       >
+        {/* Exact analytic collider for primitives (models use the hull above). */}
+        {!isModel && <PrimitiveCollider kind={obj.kind} size={obj.size} />}
         {/* targetRef points at the static group below; the pickable mesh (children)
             is bound as the handle surface and stays inside the body. */}
         <Handle targetRef={targetRef} scale={false} multitouch={false} apply={apply}>
@@ -188,11 +202,32 @@ function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNod
   )
 }
 
+// Analytic collider matching each primitive's geometry (see Primitive() for the
+// unit dimensions; all are scaled by `size`). Collider half-extents are centered
+// on the body origin, so with the body placed at solidHalfHeight the base lands
+// exactly on the floor. Rapier collider args: Cuboid = half-extents; Ball =
+// radius; Cylinder/Cone = [halfHeight, radius].
+function PrimitiveCollider({ kind, size }: { kind: ObjectKind; size: number }) {
+  switch (kind) {
+    case 'sphere':
+      return <BallCollider args={[0.6 * size]} />
+    case 'cylinder':
+      return <CylinderCollider args={[0.5 * size, 0.5 * size]} />
+    case 'cone':
+      return <ConeCollider args={[0.5 * size, 0.6 * size]} />
+    case 'torus':
+      return <CuboidCollider args={[0.7 * size, 0.7 * size, 0.2 * size]} />
+    case 'box':
+    default:
+      return <CuboidCollider args={[0.5 * size, 0.5 * size, 0.5 * size]} />
+  }
+}
+
 function ModelBody({ obj }: { obj: SceneObject }) {
   if (obj.src) {
     return (
       <Suspense fallback={<ModelPlaceholder size={obj.size} label="loading model…" />}>
-        <NormalizedModel src={obj.src} size={obj.size} />
+        <NormalizedModel src={obj.src} size={obj.size} textureSrc={obj.textureSrc} textureRepeat={obj.textureRepeat} />
       </Suspense>
     )
   }
@@ -203,11 +238,32 @@ function ModelBody({ obj }: { obj: SceneObject }) {
 
 // Raw GLBs vary wildly in scale and pivot, so recenter on the bounding box in x/z,
 // and sit the model's BASE at y=0 (so a rigid body at y=0 rests on the floor).
-// Uniform-scale so the largest dimension is roughly `size` meters.
-function NormalizedModel({ src, size }: { src: string; size: number }) {
+// Uniform-scale so the largest dimension is roughly `size` meters. Materials are
+// cloned per instance so we can override their map when the agent applies a
+// texture without mutating the shared cached GLTF.
+function NormalizedModel({
+  src,
+  size,
+  textureSrc,
+  textureRepeat,
+}: {
+  src: string
+  size: number
+  textureSrc?: string
+  textureRepeat?: number
+}) {
   const { scene } = useGLTF(src, true)
+  const texture = usePrimitiveTexture(textureSrc, textureRepeat)
   const normalized = useMemo(() => {
     const clone = scene.clone(true)
+    // Own our materials so map overrides don't leak into the cached GLTF.
+    clone.traverse((child) => {
+      const mesh = child as Mesh
+      if (!mesh.isMesh || !mesh.material) return
+      mesh.material = Array.isArray(mesh.material)
+        ? mesh.material.map((m) => (m as Material).clone())
+        : (mesh.material as Material).clone()
+    })
     const box = new Box3().setFromObject(clone)
     const dims = new Vector3()
     const center = new Vector3()
@@ -221,6 +277,23 @@ function NormalizedModel({ src, size }: { src: string; size: number }) {
       offset: new Vector3(-center.x, -box.min.y, -center.z),
     }
   }, [scene, size])
+
+  // Apply (or clear) an agent-supplied texture across all the model's materials.
+  useEffect(() => {
+    normalized.clone.traverse((child) => {
+      const mesh = child as Mesh
+      if (!mesh.isMesh || !mesh.material) return
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      for (const m of mats) {
+        const sm = m as MeshStandardMaterial
+        if (texture) {
+          sm.map = texture
+          sm.color?.set('#ffffff') // let the texture provide the color
+        }
+        sm.needsUpdate = true
+      }
+    })
+  }, [normalized, texture])
 
   return (
     <group scale={normalized.scale}>

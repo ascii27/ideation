@@ -6,12 +6,29 @@ function objectExists(id: string): boolean {
   return useScene.getState().objects.some((o) => o.id === id)
 }
 
+// Fire-and-forget bridge so the browser surfaces what's happening into the
+// server's stdout (journalctl on the VM). No-ops outside the browser (e.g. tests)
+// and never throws — logging must not affect tool execution.
+function logEvent(event: string, data: unknown): void {
+  if (typeof window === 'undefined') return
+  try {
+    void fetch('/api/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, data }),
+    }).catch(() => {})
+  } catch {
+    // ignore — logging is best-effort
+  }
+}
+
 // Executes a tool call from the model against the scene store and returns a
 // JSON-serializable result (always including the updated scene summary so the
 // model stays aware of what exists). Mostly synchronous; image creation awaits a
 // backend request. Pure with respect to React — usable in tests.
 export async function handleToolCall(name: string, args: Record<string, unknown>): Promise<unknown> {
   const scene = useScene.getState()
+  logEvent('tool_call', { name, args })
 
   switch (name) {
     case 'spawn_object': {
@@ -131,8 +148,24 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         if (polyhaven) {
           const r = await fetch(`/api/texture?q=${encodeURIComponent(polyhaven)}`)
           const j = (await r.json()) as { dataUrl?: string; error?: string }
-          if (!r.ok || !j.dataUrl) throw new Error(j.error ?? `texture failed (${r.status})`)
-          dataUrl = j.dataUrl
+          if (r.ok && j.dataUrl) {
+            dataUrl = j.dataUrl
+          } else {
+            // Poly Haven has no matching CC0 material — fall back to generating a
+            // tileable texture from the material name so common requests (e.g.
+            // "granite", which Poly Haven lacks) still succeed.
+            logEvent('texture_fallback', { polyhaven, reason: j.error ?? r.status })
+            const gr = await fetch('/api/image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                prompt: `seamless tileable ${polyhaven} surface texture, flat top-down view, photographic, even lighting, no shadows`,
+              }),
+            })
+            const gj = (await gr.json()) as { dataUrl?: string; error?: string }
+            if (!gr.ok || !gj.dataUrl) throw new Error(gj.error ?? `texture failed (${gr.status})`)
+            dataUrl = gj.dataUrl
+          }
         } else {
           const r = await fetch('/api/image', {
             method: 'POST',
