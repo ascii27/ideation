@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useScene } from './store'
 import { handleToolCall } from '../agent/toolHandlers'
 import { findCatalogModel } from './modelCatalog'
 import { presetToMaterial } from './materials'
+import { registerCapturer } from '../xr/captureBridge'
 
 beforeEach(() => {
   useScene.getState().clear()
@@ -352,5 +353,39 @@ describe('activity feed', () => {
     await handleToolCall('create_image_panel', { prompt: 'a cat' })
     const a = useScene.getState().activities
     expect(a.some((x) => x.status === 'error')).toBe(true)
+  })
+})
+
+describe('look_at_scene', () => {
+  afterEach(() => {
+    registerCapturer(null)
+    vi.unstubAllGlobals()
+  })
+
+  it('captures, asks the vision route, and returns the description', async () => {
+    registerCapturer(async () => 'data:image/jpeg;base64,AAAA')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ description: 'a yellow rubber duck' }) })),
+    )
+    const r = (await handleToolCall('look_at_scene', { question: 'what is this?' })) as {
+      ok: boolean
+      description: string
+    }
+    expect(r.ok).toBe(true)
+    expect(r.description).toContain('duck')
+    // an activity was emitted and ended (not left active)
+    expect(useScene.getState().activities.some((a) => a.status === 'active')).toBe(false)
+  })
+
+  it('returns a clean error when no view is available (no capturer)', async () => {
+    registerCapturer(null)
+    const r = (await handleToolCall('look_at_scene', {})) as { ok: boolean }
+    expect(r.ok).toBe(false)
+  })
+
+  it('errors on an unknown focus id without capturing', async () => {
+    const r = (await handleToolCall('look_at_scene', { focus: 'ghost-1' })) as { ok: boolean }
+    expect(r.ok).toBe(false)
   })
 })

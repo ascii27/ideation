@@ -1,5 +1,6 @@
 import { useScene, type SpawnArgs, type UpdateArgs } from '../scene/store'
 import { findCatalogModel } from '../scene/modelCatalog'
+import { captureScene } from '../xr/captureBridge'
 import type { MaterialPreset } from '../scene/materials'
 
 function objectExists(id: string): boolean {
@@ -254,6 +255,34 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       const environment = scene.setEnvironment(patch)
       useScene.getState().toast('changed the environment')
       return { ok: true, environment, scene: useScene.getState().summary() }
+    }
+
+    case 'look_at_scene': {
+      const focus = typeof args.focus === 'string' ? args.focus : undefined
+      const question = typeof args.question === 'string' ? args.question : undefined
+      if (focus && !objectExists(focus)) {
+        return { ok: false, error: `No object with id "${focus}".`, scene: scene.summary() }
+      }
+      const act = useScene.getState().beginActivity('looking at the scene…')
+      try {
+        const image = await captureScene({ focusId: focus })
+        if (!image) {
+          useScene.getState().endActivity(act, "couldn't capture view", 'error')
+          return { ok: false, error: 'Could not capture the scene (no active view).', scene: scene.summary() }
+        }
+        const resp = await fetch('/api/vision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image, question }),
+        })
+        const json = (await resp.json()) as { description?: string; error?: string }
+        if (!resp.ok || !json.description) throw new Error(json.error ?? `vision failed (${resp.status})`)
+        useScene.getState().endActivity(act, 'looked at the scene')
+        return { ok: true, description: json.description, scene: useScene.getState().summary() }
+      } catch (err) {
+        useScene.getState().endActivity(act, 'look failed', 'error')
+        return { ok: false, error: String(err), scene: scene.summary() }
+      }
     }
 
     case 'list_scene':

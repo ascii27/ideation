@@ -236,6 +236,19 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     type: 'function',
+    name: 'look_at_scene',
+    description:
+      "Actually look at the space with your own eyes by taking a snapshot and seeing what's really there. Use this to check that a model or image you added matches what was asked (the right model doesn't always load), or when the person asks what's in the scene or whether something looks right. Pass focus with an object id (e.g. \"model-1\") to look closely at that one thing; omit it to look at whatever is in front of the person.",
+    parameters: {
+      type: 'object',
+      properties: {
+        focus: { type: 'string', description: 'Object id to inspect up close, e.g. "model-1".' },
+        question: { type: 'string', description: 'What you want to check, e.g. "is this a wooden chair?".' },
+      },
+    },
+  },
+  {
+    type: 'function',
     name: 'list_scene',
     description: 'Get a summary of everything currently in the space and where it is.',
     parameters: { type: 'object', properties: {} },
