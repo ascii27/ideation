@@ -8,6 +8,7 @@ beforeEach(() => {
   useScene.getState().clear()
   useScene.getState().setPhysics({ gravity: true, collision: true })
   useScene.getState().setEnvironment({ skyColor: '#0a0a0f', ambientIntensity: 0.4, fog: true })
+  useScene.setState({ activities: [], activitySeq: 0 })
 })
 
 describe('scene store', () => {
@@ -306,5 +307,50 @@ describe('model catalog', () => {
 
   it('returns undefined for unknown queries', () => {
     expect(findCatalogModel('xyzzy unicorn castle')).toBeUndefined()
+  })
+})
+
+describe('activity feed', () => {
+  it('beginActivity adds an active item and returns its id', () => {
+    const id = useScene.getState().beginActivity('generating image…')
+    const a = useScene.getState().activities
+    expect(a).toHaveLength(1)
+    expect(a[0]).toMatchObject({ id, text: 'generating image…', status: 'active' })
+  })
+
+  it('endActivity flips status and can change the text', () => {
+    const id = useScene.getState().beginActivity('finding model…')
+    useScene.getState().endActivity(id, 'model ready')
+    expect(useScene.getState().activities[0]).toMatchObject({ id, text: 'model ready', status: 'done' })
+  })
+
+  it('endActivity can mark an error', () => {
+    const id = useScene.getState().beginActivity('applying texture…')
+    useScene.getState().endActivity(id, 'texture failed', 'error')
+    expect(useScene.getState().activities[0].status).toBe('error')
+  })
+
+  it('toast adds a one-off done line', () => {
+    const id = useScene.getState().toast('changed the sky')
+    expect(useScene.getState().activities[0]).toMatchObject({ id, text: 'changed the sky', status: 'done' })
+  })
+
+  it('dismissActivity removes by id', () => {
+    const id = useScene.getState().toast('added a note')
+    useScene.getState().dismissActivity(id)
+    expect(useScene.getState().activities).toHaveLength(0)
+  })
+
+  it('quick tools emit a toast (e.g. create_text_panel)', async () => {
+    await handleToolCall('create_text_panel', { text: 'hi' })
+    const texts = useScene.getState().activities.map((a) => a.text)
+    expect(texts.some((t) => t.includes('note'))).toBe(true)
+  })
+
+  it('a failed image emits an active→error activity', async () => {
+    // No network in tests → the fetch throws → activity ends as error.
+    await handleToolCall('create_image_panel', { prompt: 'a cat' })
+    const a = useScene.getState().activities
+    expect(a.some((x) => x.status === 'error')).toBe(true)
   })
 })

@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { createXRStore, XR, XROrigin } from '@react-three/xr'
 import { Vector3 } from 'three'
 import { Scene } from './xr/Scene'
+import { Locomotion } from './xr/Locomotion'
 import { useRealtimeSession } from './agent/useRealtimeSession'
 import type { RealtimeStatus } from './agent/realtime'
 
@@ -20,6 +21,7 @@ export function App() {
   // The player's origin (feet). Teleporting updates this; the XROrigin moves the
   // whole player rig there.
   const [playerPos, setPlayerPos] = useState(() => new Vector3())
+  const [playerYaw, setPlayerYaw] = useState(0)
 
   return (
     <>
@@ -31,7 +33,13 @@ export function App() {
       />
       <Canvas camera={{ position: [0, 1.6, 2.5], fov: 70 }}>
         <XR store={xrStore}>
-          <XROrigin position={playerPos} />
+          <XROrigin position={playerPos} rotation={[0, playerYaw, 0]} />
+          <Locomotion
+            playerPos={playerPos}
+            playerYaw={playerYaw}
+            onMove={setPlayerPos}
+            onYaw={setPlayerYaw}
+          />
           <Scene
             status={status}
             onConnect={connect}

@@ -91,7 +91,9 @@ always knows what exists and where (lightweight spatial memory within a session)
 | `src/App.tsx` | Canvas, XR store (teleport pointers), XROrigin, DOM overlay |
 | `src/xr/Scene.tsx` | Room, lighting, grid, **`<Physics>` world + ground collider at y=0**, avatar, credits |
 | `src/xr/SceneObjects.tsx` | Renders store objects; physics rigid bodies + grab; primitives/text/image/model/**ground** |
-| `src/xr/AgentAvatar.tsx` | Glass avatar (state colors, speaking pulse, click → settings); **lazy-follows the user** |
+| `src/xr/AgentAvatar.tsx` | Glass avatar (state colors, speaking pulse, click → settings); **lazy-follows the user**; mounts the status bubble |
+| `src/xr/Locomotion.tsx` | Thumbstick locomotion: left-stick **hop**, right-stick **45° snap-turn** (head-pivot) |
+| `src/xr/StatusBubble.tsx` | Floating activity HUD above the avatar (loading/done/error lines, auto-expire) |
 | `src/xr/SettingsPanel.tsx`, `VrButton.tsx`, `CreditsPanel.tsx` | In-VR UI |
 | `src/agent/tools.ts` | Tool JSON schemas (shared with the server session) |
 | `src/agent/toolHandlers.ts` | `handleToolCall` — executes tools against the store |
@@ -116,9 +118,14 @@ metalness/roughness/color), `set_physics` (toggle gravity + collision),
 `set_environment` (**sky/background color, ambient light intensity, fog**),
 `create_ground` (large flat textured ground plane), `list_scene`, `clear_scene`.
 
-User-side (not agent): **teleport** (point a controller at the floor, release) and
-**grab/move/rotate** any object (the moved transform is written back to the store so the
-agent's memory stays correct).
+User-side (not agent): **teleport** (point a controller at the floor, release),
+**thumbstick locomotion** (left stick = hop ~1.5 m in the gaze-relative pushed direction;
+right stick = 45° snap-turn pivoting around the head), and **grab/move/rotate** any object
+(the moved transform is written back to the store so the agent's memory stays correct).
+
+**Movement-loss bug (fixed):** the `create_ground` plane (at y=0.02) used to occlude the base
+floor teleport target, silently breaking teleport after ground was laid down. The ground plane
+is now itself a `TeleportTarget`, and thumbstick hop is a raycast-independent fallback.
 
 ## Secrets / environment (on the VM, `/home/exedev/ideation/.env`)
 
@@ -163,24 +170,32 @@ All PRs (#1–#7) are merged. **Effort A = PR #8** (`effort-a-positioning-physic
   sphere uses a mean-radius ball collider — no ellipsoid in Rapier). Pure helpers `effectiveScale` /
   `scaledColliderArgs` in `src/scene/geometry.ts`. Design + plan in `docs/superpowers/`.
 
+- **QoL-B — locomotion & status HUD** (`qol-locomotion-status`): **thumbstick locomotion** —
+  left-stick **hop** (~1.5 m, gaze-relative, edge-triggered) + right-stick **45° snap-turn**
+  (pivots around the head via the pure `pivotPlayerPosition` helper); new `src/xr/Locomotion.tsx`
+  inside `<XR>`, with `playerYaw` lifted into `App`. **Teleport-loss fix**: `create_ground` plane
+  is now a `TeleportTarget` (it previously occluded the base floor target and broke teleport).
+  **Status HUD**: a transient `activities` feed in the store (`beginActivity`/`endActivity`/`toast`),
+  emitted by the async + quick tool handlers, rendered by `src/xr/StatusBubble.tsx` above the
+  avatar (loading → done/error, auto-expiring). Design + plan in `docs/superpowers/`.
+
 ## Not done yet / next steps
 
-- **Immediate: a few more "basics" polish items** (current intent before bigger features). To be
-  fleshed out at the start of the next session — the user wants to fix more fundamentals before
-  external-data work.
-- **Loading/status indicators for async ops** (flagged follow-up): ground textures take 10–20 s to
-  generate with **no visible feedback** right now. Want a per-object loading state + an inline
-  "generating ground texture…" indicator, maybe a small status HUD near the avatar. (Background
-  task chip was created for this.)
+- **"Basics" polish — DONE** (QoL-A + QoL-B above): sky color, ambient light, object glow,
+  non-uniform transform, thumbstick locomotion (hop + snap-turn), teleport-loss fix, and the
+  **status HUD** (which closes out the earlier "loading/status indicators for async ops"
+  follow-up — ground/texture/model/image generation now shows a bubble above the avatar).
 - **Effort B — external data integrations** (agreed next big effort, deferred): pull internet
   content into VR as virtual objects, e.g. "the weather in Tokyo for the next 7 days." Server-side
   fetch route + a new agent tool (e.g. `visualize_data`); agent decides the representation if the
   user doesn't specify. Brainstorm as its own spec.
 - **Phase 4 — spatial memory & persistence**: persist the scene across reloads (localStorage and/or
   server), named references ("put the tree where the red box was"), group/arrange tools.
-- **Snap-turn** locomotion (thumbstick rotate) intentionally skipped; teleport + physical turning
-  only.
-- **Grab** allows translate + rotate (scale disabled).
+- **Locomotion** now offers teleport, physical turning, **thumbstick hop**, and **45° snap-turn**
+  (QoL-B). Tuning constants (hop distance, turn angle, stick thresholds) live at the top of
+  `src/xr/Locomotion.tsx`; if hop/turn feels reversed in-headset, flip the signs there.
+- **Grab** allows translate + rotate (scale disabled); the agent can non-uniformly scale via
+  `update_object` `scale`.
 - **Known minor**: the ground surface sits ~2 cm above y=0, so solids rest a hair into it
   (intentional, looks natural); primitives currently pass through models (models are floor-only).
 

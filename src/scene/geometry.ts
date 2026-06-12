@@ -77,3 +77,28 @@ export function scaledColliderArgs(kind: ObjectKind, e: [number, number, number]
       return { shape: 'cuboid', args: [0.5 * ex, 0.5 * ey, 0.5 * ez] }
   }
 }
+
+// Rotate a vector (x,z) about the Y axis by `a` radians (three's Y-rotation
+// convention: x' = cos·x + sin·z, z' = -sin·x + cos·z).
+function rotateXZ(x: number, z: number, a: number): [number, number] {
+  const c = Math.cos(a)
+  const s = Math.sin(a)
+  return [c * x + s * z, -s * x + c * z]
+}
+
+/** New player (feet) position so that snapping the view yaw from `yaw` to
+ *  `newYaw` pivots around the head's world position `head` (keeps head XZ fixed).
+ *  Feet y is preserved. Used by snap-turn so the player rotates in place. */
+export function pivotPlayerPosition(
+  playerPos: [number, number, number],
+  yaw: number,
+  head: [number, number, number],
+  newYaw: number,
+): [number, number, number] {
+  // Head offset in the origin's local frame (un-rotate by current yaw).
+  const [lx, lz] = rotateXZ(head[0] - playerPos[0], head[2] - playerPos[2], -yaw)
+  // Where that local offset lands after the new yaw.
+  const [wx, wz] = rotateXZ(lx, lz, newYaw)
+  // Feet = head - rotated offset, keeping head fixed.
+  return [head[0] - wx, playerPos[1], head[2] - wz]
+}

@@ -3,6 +3,12 @@ import type { Attribution, EnvironmentState, ObjectKind, PhysicsState, SceneObje
 import type { MaterialPreset } from './materials'
 import { isSolidKind, solidHalfHeight } from './geometry'
 
+export interface Activity {
+  id: string
+  text: string
+  status: 'active' | 'done' | 'error'
+}
+
 interface MaterialFields {
   textureSrc?: string
   textureRepeat?: number
@@ -59,6 +65,18 @@ interface SceneState {
   environment: EnvironmentState
   /** Update one or more environment fields; omitted fields are left unchanged. */
   setEnvironment: (patch: Partial<EnvironmentState>) => EnvironmentState
+  /** Transient status feed shown above the avatar (loading/done/toasts). */
+  activities: Activity[]
+  /** Monotonic id source for activities (internal). */
+  activitySeq: number
+  /** Start an in-progress activity; returns its id. */
+  beginActivity: (text: string) => string
+  /** Finish an activity (status done/error), optionally updating its text. */
+  endActivity: (id: string, text?: string, status?: 'done' | 'error') => void
+  /** Add a one-off completed line (for quick actions). Returns its id. */
+  toast: (text: string) => string
+  /** Remove an activity by id (the HUD calls this after it expires). */
+  dismissActivity: (id: string) => void
 }
 
 // The ground surface sits centered on the origin, just above y=0 so it covers the
@@ -87,6 +105,34 @@ export const useScene = create<SceneState>((set, get) => ({
   counters: {},
   physics: { gravity: true, collision: true },
   environment: { skyColor: '#0a0a0f', ambientIntensity: 0.4, fog: true },
+  activities: [],
+  activitySeq: 0,
+
+  beginActivity: (text) => {
+    const seq = get().activitySeq + 1
+    const id = `act-${seq}`
+    set({ activitySeq: seq, activities: [...get().activities, { id, text, status: 'active' }] })
+    return id
+  },
+
+  endActivity: (id, text, status = 'done') => {
+    set({
+      activities: get().activities.map((a) =>
+        a.id === id ? { ...a, status, text: text ?? a.text } : a,
+      ),
+    })
+  },
+
+  toast: (text) => {
+    const seq = get().activitySeq + 1
+    const id = `act-${seq}`
+    set({ activitySeq: seq, activities: [...get().activities, { id, text, status: 'done' }] })
+    return id
+  },
+
+  dismissActivity: (id) => {
+    set({ activities: get().activities.filter((a) => a.id !== id) })
+  },
 
   spawn: (args) => {
     const { counters, objects } = get()

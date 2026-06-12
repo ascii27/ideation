@@ -4,6 +4,7 @@ import { Color, MathUtils, Quaternion, Vector3, type Group, type Mesh, type Mesh
 import type { RealtimeStatus } from '../agent/realtime'
 import { sampleAgentLevel } from '../agent/agentAudio'
 import { SettingsPanel } from './SettingsPanel'
+import { StatusBubble } from './StatusBubble'
 
 // State → color: cool blue idle, amber connecting, green listening/speaking, red error.
 const STATE_COLOR: Record<RealtimeStatus, string> = {
@@ -117,6 +118,8 @@ export function AgentAvatar({
           toneMapped={false}
         />
       </mesh>
+
+      <StatusBubble />
 
       {showSettings && (
         <SettingsPanel
