@@ -175,6 +175,31 @@ describe('physics state + resting spawn', () => {
   })
 })
 
+describe('set_physics tool', () => {
+  it('toggles gravity and reports the new physics state + scene', async () => {
+    const r = (await handleToolCall('set_physics', { gravity: false })) as {
+      ok: boolean
+      physics: { gravity: boolean; collision: boolean }
+      scene: string
+    }
+    expect(r.ok).toBe(true)
+    expect(r.physics).toEqual({ gravity: false, collision: true })
+    expect(typeof r.scene).toBe('string')
+    expect(useScene.getState().physics.gravity).toBe(false)
+  })
+
+  it('toggles collision independently', async () => {
+    await handleToolCall('set_physics', { collision: false })
+    expect(useScene.getState().physics).toEqual({ gravity: true, collision: false })
+  })
+
+  it('with no args is a no-op that still reports state', async () => {
+    const r = (await handleToolCall('set_physics', {})) as { ok: boolean; physics: unknown }
+    expect(r.ok).toBe(true)
+    expect(useScene.getState().physics).toEqual({ gravity: true, collision: true })
+  })
+})
+
 describe('model catalog', () => {
   it('matches curated models by keyword', () => {
     expect(findCatalogModel('a rubber duck')?.title).toBe('Duck')

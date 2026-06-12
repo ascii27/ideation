@@ -162,6 +162,14 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       return { ok: true, id, scene: useScene.getState().summary() }
     }
 
+    case 'set_physics': {
+      const patch: { gravity?: boolean; collision?: boolean } = {}
+      if (typeof args.gravity === 'boolean') patch.gravity = args.gravity
+      if (typeof args.collision === 'boolean') patch.collision = args.collision
+      const physics = scene.setPhysics(patch)
+      return { ok: true, physics, scene: useScene.getState().summary() }
+    }
+
     case 'list_scene':
       return { scene: scene.summary() }
 

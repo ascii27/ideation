@@ -175,6 +175,19 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     type: 'function',
+    name: 'set_physics',
+    description:
+      'Turn physics on or off in the space. gravity controls whether solid objects fall and settle (off = they float frozen in place). collision controls whether solids bump into each other (off = they pass through; they still rest on the floor). Both are on by default. Set only the flag(s) the person asked to change.',
+    parameters: {
+      type: 'object',
+      properties: {
+        gravity: { type: 'boolean', description: 'Whether objects fall under gravity.' },
+        collision: { type: 'boolean', description: 'Whether objects collide with each other.' },
+      },
+    },
+  },
+  {
+    type: 'function',
     name: 'list_scene',
     description: 'Get a summary of everything currently in the space and where it is.',
     parameters: { type: 'object', properties: {} },
