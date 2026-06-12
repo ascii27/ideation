@@ -6,12 +6,59 @@ function objectExists(id: string): boolean {
   return useScene.getState().objects.some((o) => o.id === id)
 }
 
+// Fire-and-forget bridge so the browser surfaces what's happening into the
+// server's stdout (journalctl on the VM). No-ops outside the browser (e.g. tests)
+// and never throws — logging must not affect tool execution.
+function logEvent(event: string, data: unknown): void {
+  if (typeof window === 'undefined') return
+  try {
+    void fetch('/api/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, data }),
+    }).catch(() => {})
+  } catch {
+    // ignore — logging is best-effort
+  }
+}
+
+// Resolve a texture to a same-origin data URL: a real Poly Haven CC0 material
+// (falling back to generation if Poly Haven lacks the named material), or a
+// generated / fetched image. Shared by apply_texture and create_ground.
+async function fetchTextureDataUrl(opts: { prompt?: string; url?: string; polyhaven?: string }): Promise<string> {
+  const { prompt, url, polyhaven } = opts
+  const headers = { 'Content-Type': 'application/json' }
+  if (polyhaven) {
+    const r = await fetch(`/api/texture?q=${encodeURIComponent(polyhaven)}`)
+    const j = (await r.json()) as { dataUrl?: string; error?: string }
+    if (r.ok && j.dataUrl) return j.dataUrl
+    // No matching CC0 material — generate a tileable texture from the name so
+    // common requests (e.g. "granite", which Poly Haven lacks) still succeed.
+    logEvent('texture_fallback', { polyhaven, reason: j.error ?? r.status })
+    const gr = await fetch('/api/image', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        prompt: `seamless tileable ${polyhaven} surface texture, flat top-down view, photographic, even lighting, no shadows`,
+      }),
+    })
+    const gj = (await gr.json()) as { dataUrl?: string; error?: string }
+    if (!gr.ok || !gj.dataUrl) throw new Error(gj.error ?? `texture failed (${gr.status})`)
+    return gj.dataUrl
+  }
+  const r = await fetch('/api/image', { method: 'POST', headers, body: JSON.stringify({ prompt, url }) })
+  const j = (await r.json()) as { dataUrl?: string; error?: string }
+  if (!r.ok || !j.dataUrl) throw new Error(j.error ?? `texture failed (${r.status})`)
+  return j.dataUrl
+}
+
 // Executes a tool call from the model against the scene store and returns a
 // JSON-serializable result (always including the updated scene summary so the
 // model stays aware of what exists). Mostly synchronous; image creation awaits a
 // backend request. Pure with respect to React — usable in tests.
 export async function handleToolCall(name: string, args: Record<string, unknown>): Promise<unknown> {
   const scene = useScene.getState()
+  logEvent('tool_call', { name, args })
 
   switch (name) {
     case 'spawn_object': {
@@ -127,26 +174,30 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         return { ok: false, error: 'Provide prompt, url, or polyhaven.', scene: scene.summary() }
       }
       try {
-        let dataUrl: string
-        if (polyhaven) {
-          const r = await fetch(`/api/texture?q=${encodeURIComponent(polyhaven)}`)
-          const j = (await r.json()) as { dataUrl?: string; error?: string }
-          if (!r.ok || !j.dataUrl) throw new Error(j.error ?? `texture failed (${r.status})`)
-          dataUrl = j.dataUrl
-        } else {
-          const r = await fetch('/api/image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, url }),
-          })
-          const j = (await r.json()) as { dataUrl?: string; error?: string }
-          if (!r.ok || !j.dataUrl) throw new Error(j.error ?? `texture failed (${r.status})`)
-          dataUrl = j.dataUrl
-        }
+        const dataUrl = await fetchTextureDataUrl({ prompt, url, polyhaven })
         useScene.getState().update(id, { textureSrc: dataUrl, textureRepeat: repeat })
         return { ok: true, id, scene: useScene.getState().summary() }
       } catch (err) {
         return { ok: false, id, error: String(err), scene: useScene.getState().summary() }
+      }
+    }
+
+    case 'create_ground': {
+      const textureDesc = typeof args.texture === 'string' ? args.texture : undefined
+      const polyhaven = typeof args.polyhaven === 'string' ? args.polyhaven : undefined
+      const color = typeof args.color === 'string' ? args.color : undefined
+      const size = typeof args.size === 'number' ? args.size : undefined
+      // The ground appears immediately (flat color); the texture fills in after.
+      const obj = scene.spawn({ kind: 'ground', size, color })
+      if (!textureDesc && !polyhaven) {
+        return { ok: true, id: obj.id, scene: useScene.getState().summary() }
+      }
+      try {
+        const dataUrl = await fetchTextureDataUrl({ prompt: textureDesc, polyhaven })
+        useScene.getState().update(obj.id, { textureSrc: dataUrl })
+        return { ok: true, id: obj.id, scene: useScene.getState().summary() }
+      } catch (err) {
+        return { ok: false, id: obj.id, error: String(err), scene: useScene.getState().summary() }
       }
     }
 
@@ -160,6 +211,14 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       if (typeof args.roughness === 'number') patch.roughness = args.roughness
       scene.update(id, patch)
       return { ok: true, id, scene: useScene.getState().summary() }
+    }
+
+    case 'set_physics': {
+      const patch: { gravity?: boolean; collision?: boolean } = {}
+      if (typeof args.gravity === 'boolean') patch.gravity = args.gravity
+      if (typeof args.collision === 'boolean') patch.collision = args.collision
+      const physics = scene.setPhysics(patch)
+      return { ok: true, physics, scene: useScene.getState().summary() }
     }
 
     case 'list_scene':

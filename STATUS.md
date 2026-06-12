@@ -32,7 +32,14 @@ npm run build          # vite build -> dist/
 
 ./scripts/deploy.sh    # rsync to armchair-sparkle, npm install + build on the VM,
                        # restart the systemd service, health check
+./scripts/logs.sh      # fetch the VM service logs (journalctl -u ideation).
+                       # e.g. ./scripts/logs.sh 200 texture  | ./scripts/logs.sh -f
 ```
+
+- The client posts agent tool calls to `/api/log`, which the server prints to
+  stdout (captured by journalctl) — so `./scripts/logs.sh` shows what the agent did
+  (tool calls, texture lookups/fallbacks, image generations, errors) from outside
+  the headset.
 
 - `npm run dev` runs the Express server with Vite in middleware mode (single origin + HMR).
 - Deploy is the normal loop: edit locally → `./scripts/deploy.sh` → open the exe.xyz URL.
@@ -100,7 +107,8 @@ always knows what exists and where (lightweight spatial memory within a session)
 `delete_object`, `create_text_panel`, `create_image_panel` (generate or URL),
 `spawn_model` (curated catalog first, else Poly Pizza search), `apply_texture`
 (generate / URL / Poly Haven CC0), `set_material` (metal/glass/plastic/wood/matte +
-metalness/roughness/color), `list_scene`, `clear_scene`.
+metalness/roughness/color), `set_physics` (toggle gravity + collision),
+`create_ground` (large flat textured ground plane), `list_scene`, `clear_scene`.
 
 User-side (not agent): **teleport** (point a controller at the floor, release) and
 **grab/move/rotate** any object (the moved transform is written back to the store so the
@@ -126,8 +134,15 @@ agent's memory stays correct).
   auto-normalized (recenter + uniform-scale); in-scene credits for attribution.
 - **5C** Texturing & materials — `apply_texture` (generated / URL / Poly Haven CC0 PBR) +
   `set_material` presets.
+- **Physics & positioning** (Effort A) — the grid is now solid **ground at y=0** (fixed Rapier
+  collider via `@react-three/rapier`). Solids (primitives + models) are rigid bodies that
+  **rest on the floor** with **gravity + collision on by default** — no more buried objects.
+  Grab drives a body kinematically and drops/settles on release (transform synced back to the
+  store). Toggle by voice via `set_physics` (gravity/collision). Text/image panels stay
+  floating (outside physics). The agent **avatar follows the user** at the lower-right of view,
+  ~40% smaller (lazy damped follow). Spec + plan in `docs/superpowers/`.
 
-All PRs (#1–#7) are merged. No open PRs. Working tree on `main` is clean.
+All PRs (#1–#7) are merged. Effort A is on branch `effort-a-positioning-physics` (PR #8).
 
 ## Not done yet / next steps
 

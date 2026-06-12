@@ -4,13 +4,31 @@
 
 import type { MaterialPreset } from './materials'
 
-export type ObjectKind = 'box' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'text' | 'image' | 'model'
+export type ObjectKind =
+  | 'box'
+  | 'sphere'
+  | 'cylinder'
+  | 'cone'
+  | 'torus'
+  | 'text'
+  | 'image'
+  | 'model'
+  // A large flat ground surface the scene sits on (scenery, non-physics).
+  | 'ground'
 
 /** Credit for an openly-licensed asset (CC-BY models need attribution shown). */
 export interface Attribution {
   author: string
   license: string
   url?: string
+}
+
+/** Global physics toggles, controlled by the agent's set_physics tool. */
+export interface PhysicsState {
+  /** When false, solids float in place (no gravity). */
+  gravity: boolean
+  /** When false, solids pass through each other (they still rest on the floor). */
+  collision: boolean
 }
 
 export interface SceneObject {

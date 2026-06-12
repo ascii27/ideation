@@ -12,7 +12,9 @@ const STATUS_TEXT: Record<RealtimeStatus, string> = {
 }
 
 // Floating settings/control panel for the agent. Appears below the avatar when
-// it's clicked — this is also how you start voice from inside VR.
+// it's clicked — this is also how you start voice from inside VR. The panel stays
+// full-size (so buttons remain readable/clickable) but anchors just under the now
+// smaller avatar ball; the offset is comfortable to retune on-headset.
 export function SettingsPanel({
   status,
   onConnect,
@@ -28,7 +30,7 @@ export function SettingsPanel({
   const clear = useScene((s) => s.clear)
 
   return (
-    <group position={[0, -0.62, 0]}>
+    <group position={[0, -0.5, 0]}>
       <mesh position={[0, 0, -0.02]}>
         <planeGeometry args={[1.15, 1.0]} />
         <meshBasicMaterial color="#10101a" transparent opacity={0.88} />

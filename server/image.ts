@@ -41,6 +41,7 @@ imageRouter.post('/image', async (req, res) => {
 
     // Generate an image from a text prompt.
     if (typeof prompt === 'string' && prompt) {
+      console.log(`[image] generate prompt="${prompt.slice(0, 80)}"`)
       const apiKey = process.env.OPENAI_API_KEY
       if (!apiKey) {
         res.status(500).json({ error: 'OPENAI_API_KEY is not set on the server' })

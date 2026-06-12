@@ -72,7 +72,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     type: 'function',
     name: 'apply_texture',
     description:
-      'Apply a surface texture to a primitive object (box/sphere/etc.). Either generate the texture from a description (prompt), use an image URL, or pull a real CC0 PBR material from the Poly Haven library (polyhaven). Reference the object by id.',
+      'Apply a surface texture to any object — a primitive (box/sphere/etc.) or a 3D model (e.g. a boulder, a chair). Either generate the texture from a description (prompt), use an image URL, or name a real material for the Poly Haven CC0 library (polyhaven); if Poly Haven has no match the texture is generated from that name automatically. Reference the object by id.',
     parameters: {
       type: 'object',
       properties: {
@@ -170,6 +170,40 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         },
         size: { type: 'number', description: 'Panel width in meters. Default 1.5.' },
         position,
+      },
+    },
+  },
+  {
+    type: 'function',
+    name: 'create_ground',
+    description:
+      'Lay down a large flat ground surface across the whole space — a wide textured floor the scene sits on (grass, sand, stone, dirt, water, etc.). Use this when the person asks for "ground", a floor, terrain, or a surface underfoot. It covers the reference grid. Describe the surface with texture, or name a real CC0 material with polyhaven; if they don\'t specify, pick a fitting one.',
+    parameters: {
+      type: 'object',
+      properties: {
+        texture: {
+          type: 'string',
+          description: 'Describe the ground surface to generate, e.g. "lush green grass", "beach sand", "cobblestone".',
+        },
+        polyhaven: {
+          type: 'string',
+          description: 'A real CC0 ground material to fetch from Poly Haven, e.g. "grass", "forest floor", "gravel".',
+        },
+        color: { type: 'string', description: 'Base color if no texture is used (CSS color/hex).' },
+        size: { type: 'number', description: 'Side length in meters. Default 80 (large).' },
+      },
+    },
+  },
+  {
+    type: 'function',
+    name: 'set_physics',
+    description:
+      'Turn physics on or off in the space. gravity controls whether solid objects fall and settle (off = they float frozen in place). collision controls whether solids bump into each other (off = they pass through; they still rest on the floor). Both are on by default. Set only the flag(s) the person asked to change.',
+    parameters: {
+      type: 'object',
+      properties: {
+        gravity: { type: 'boolean', description: 'Whether objects fall under gravity.' },
+        collision: { type: 'boolean', description: 'Whether objects collide with each other.' },
       },
     },
   },
