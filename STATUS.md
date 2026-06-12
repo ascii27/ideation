@@ -107,11 +107,13 @@ always knows what exists and where (lightweight spatial memory within a session)
 
 ## Agent tools (what the agent can do)
 
-`spawn_object` (box/sphere/cylinder/cone/torus), `update_object` (color/size/move/rotate),
+`spawn_object` (box/sphere/cylinder/cone/torus), `update_object` (color/size/move/rotate +
+**`scale` per-axis stretch/squish** + **`glow` light emission**),
 `delete_object`, `create_text_panel`, `create_image_panel` (generate or URL),
 `spawn_model` (curated catalog first, else Poly Pizza search), `apply_texture`
 (generate / URL / Poly Haven CC0), `set_material` (metal/glass/plastic/wood/matte +
 metalness/roughness/color), `set_physics` (toggle gravity + collision),
+`set_environment` (**sky/background color, ambient light intensity, fog**),
 `create_ground` (large flat textured ground plane), `list_scene`, `clear_scene`.
 
 User-side (not agent): **teleport** (point a controller at the floor, release) and
@@ -152,6 +154,14 @@ agent's memory stays correct).
   agent tool calls / texture / image events to journalctl. Spec + plan in `docs/superpowers/`.
 
 All PRs (#1–#7) are merged. **Effort A = PR #8** (`effort-a-positioning-physics`) — merged.
+
+- **QoL-A — environment & objects** (`qol-environment-objects`): scene-global **`set_environment`**
+  tool (sky/background color, ambient-light intensity — raise it when models look dark, fog toggle),
+  **object glow** (objects can be light sources: emissive material + a color-matched point light,
+  capped at 6 simultaneous glow lights — candle/sun), and **non-uniform transform** (`update_object`
+  `scale: [x,y,z]` stretch/squish, with **colliders scaled per-axis** to match; a non-uniformly-scaled
+  sphere uses a mean-radius ball collider — no ellipsoid in Rapier). Pure helpers `effectiveScale` /
+  `scaledColliderArgs` in `src/scene/geometry.ts`. Design + plan in `docs/superpowers/`.
 
 ## Not done yet / next steps
 
