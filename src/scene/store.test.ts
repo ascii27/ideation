@@ -250,6 +250,18 @@ describe('environment state', () => {
       fog: false,
     })
   })
+
+  it('set_environment tool applies a partial patch and reports state', async () => {
+    const r = (await handleToolCall('set_environment', { skyColor: '#223366', ambientIntensity: 1 })) as {
+      ok: boolean
+      environment: { skyColor: string; ambientIntensity: number; fog: boolean }
+      scene: string
+    }
+    expect(r.ok).toBe(true)
+    expect(r.environment).toEqual({ skyColor: '#223366', ambientIntensity: 1, fog: true })
+    expect(typeof r.scene).toBe('string')
+    expect(useScene.getState().environment.skyColor).toBe('#223366')
+  })
 })
 
 describe('model catalog', () => {

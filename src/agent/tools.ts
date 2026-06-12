@@ -209,6 +209,20 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     type: 'function',
+    name: 'set_environment',
+    description:
+      'Change the overall environment of the space: the sky/background color, how bright the ambient light is, and whether distance fog (haze) is shown. Raise ambientIntensity (toward ~1) when objects or models look too dark — especially ones that are far away or high up. Set only the field(s) the person asked to change.',
+    parameters: {
+      type: 'object',
+      properties: {
+        skyColor: { type: 'string', description: 'CSS color or hex for the sky/background (and fog), e.g. "#88bbff", "skyblue", "black".' },
+        ambientIntensity: { type: 'number', description: 'Ambient brightness ~0..3. Default 0.4. Raise to ~1 to brighten dark models, lower toward 0 for a darker mood.' },
+        fog: { type: 'boolean', description: 'Whether distance haze is drawn. Defaults on.' },
+      },
+    },
+  },
+  {
+    type: 'function',
     name: 'list_scene',
     description: 'Get a summary of everything currently in the space and where it is.',
     parameters: { type: 'object', properties: {} },

@@ -221,6 +221,15 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       return { ok: true, physics, scene: useScene.getState().summary() }
     }
 
+    case 'set_environment': {
+      const patch: Partial<import('../scene/types').EnvironmentState> = {}
+      if (typeof args.skyColor === 'string') patch.skyColor = args.skyColor
+      if (typeof args.ambientIntensity === 'number') patch.ambientIntensity = Math.max(0, args.ambientIntensity)
+      if (typeof args.fog === 'boolean') patch.fog = args.fog
+      const environment = scene.setEnvironment(patch)
+      return { ok: true, environment, scene: useScene.getState().summary() }
+    }
+
     case 'list_scene':
       return { scene: scene.summary() }
 
