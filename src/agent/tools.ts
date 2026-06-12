@@ -64,6 +64,19 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           minItems: 3,
           maxItems: 3,
         },
+        scale: {
+          type: 'array',
+          description:
+            'Absolute per-axis stretch multipliers [x, y, z]. 1 = unchanged, 2 = twice as long on that axis, 0.5 = squished to half. Use to stretch or squish an object (e.g. [1, 3, 1] makes it tall and thin).',
+          items: { type: 'number' },
+          minItems: 3,
+          maxItems: 3,
+        },
+        glow: {
+          type: 'number',
+          description:
+            'Make the object emit light (be a light source). 0 = off. ~1 = soft like a candle, higher (~3+) = bright like a lamp or sun. The glow takes the object\'s color.',
+        },
       },
       required: ['id'],
     },
@@ -204,6 +217,20 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       properties: {
         gravity: { type: 'boolean', description: 'Whether objects fall under gravity.' },
         collision: { type: 'boolean', description: 'Whether objects collide with each other.' },
+      },
+    },
+  },
+  {
+    type: 'function',
+    name: 'set_environment',
+    description:
+      'Change the overall environment of the space: the sky/background color, how bright the ambient light is, and whether distance fog (haze) is shown. Raise ambientIntensity (toward ~1) when objects or models look too dark — especially ones that are far away or high up. Set only the field(s) the person asked to change.',
+    parameters: {
+      type: 'object',
+      properties: {
+        skyColor: { type: 'string', description: 'CSS color or hex for the sky/background (and fog), e.g. "#88bbff", "skyblue", "black".' },
+        ambientIntensity: { type: 'number', description: 'Ambient brightness ~0..3. Default 0.4. Raise to ~1 to brighten dark models, lower toward 0 for a darker mood.' },
+        fog: { type: 'boolean', description: 'Whether distance haze is drawn. Defaults on.' },
       },
     },
   },

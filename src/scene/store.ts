@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Attribution, ObjectKind, PhysicsState, SceneObject } from './types'
+import type { Attribution, EnvironmentState, ObjectKind, PhysicsState, SceneObject } from './types'
 import type { MaterialPreset } from './materials'
 import { isSolidKind, solidHalfHeight } from './geometry'
 
@@ -9,6 +9,8 @@ interface MaterialFields {
   materialPreset?: MaterialPreset
   metalness?: number
   roughness?: number
+  scale?: [number, number, number]
+  glow?: number
 }
 
 export interface SpawnArgs extends MaterialFields {
@@ -53,6 +55,10 @@ interface SceneState {
   physics: PhysicsState
   /** Update one or both physics flags; omitted flags are left unchanged. */
   setPhysics: (patch: Partial<PhysicsState>) => PhysicsState
+  /** Scene-global environment (sky color, ambient light, fog). */
+  environment: EnvironmentState
+  /** Update one or more environment fields; omitted fields are left unchanged. */
+  setEnvironment: (patch: Partial<EnvironmentState>) => EnvironmentState
 }
 
 // The ground surface sits centered on the origin, just above y=0 so it covers the
@@ -80,6 +86,7 @@ export const useScene = create<SceneState>((set, get) => ({
   objects: [],
   counters: {},
   physics: { gravity: true, collision: true },
+  environment: { skyColor: '#0a0a0f', ambientIntensity: 0.4, fog: true },
 
   spawn: (args) => {
     const { counters, objects } = get()
@@ -113,6 +120,8 @@ export const useScene = create<SceneState>((set, get) => ({
       materialPreset: args.materialPreset,
       metalness: args.metalness,
       roughness: args.roughness,
+      scale: args.scale,
+      glow: args.glow,
     }
     set({ objects: [...objects, obj], counters: { ...counters, [args.kind]: n } })
     return obj
@@ -135,6 +144,8 @@ export const useScene = create<SceneState>((set, get) => ({
     if (patch.materialPreset !== undefined) next.materialPreset = patch.materialPreset
     if (patch.metalness !== undefined) next.metalness = patch.metalness
     if (patch.roughness !== undefined) next.roughness = patch.roughness
+    if (patch.scale !== undefined) next.scale = patch.scale
+    if (patch.glow !== undefined) next.glow = patch.glow
     if (patch.rotation !== undefined) next.rotation = patch.rotation
     if (patch.position) {
       next.position = [patch.position.x, patch.position.y, patch.position.z]
@@ -167,6 +178,12 @@ export const useScene = create<SceneState>((set, get) => ({
     return next
   },
 
+  setEnvironment: (patch) => {
+    const next: EnvironmentState = { ...get().environment, ...patch }
+    set({ environment: next })
+    return next
+  },
+
   summary: () => {
     const { objects } = get()
     if (objects.length === 0) return 'The space is empty.'
@@ -180,7 +197,9 @@ export const useScene = create<SceneState>((set, get) => ({
       else if (o.kind === 'ground') desc = o.textureSrc ? 'ground (textured)' : `${o.color} ground`
       else {
         const finish = o.textureSrc ? ' textured' : o.materialPreset ? ` ${o.materialPreset}` : ''
-        desc = `${o.color} ${o.kind}${finish}`
+        const stretched = o.scale && (o.scale[0] !== o.scale[1] || o.scale[1] !== o.scale[2]) ? ' stretched' : ''
+        const glowing = o.glow && o.glow > 0 ? ' glowing' : ''
+        desc = `${o.color} ${o.kind}${finish}${stretched}${glowing}`
       }
       return `${o.id}${lbl}: ${desc} at (${p})`
     })

@@ -24,13 +24,14 @@ export function Scene({
   onTeleport: (point: Vector3) => void
 }) {
   const gravity = useScene((s) => s.physics.gravity)
+  const env = useScene((s) => s.environment)
 
   return (
     <>
-      <color attach="background" args={['#0a0a0f']} />
-      <fog attach="fog" args={['#0a0a0f', 6, 22]} />
+      <color attach="background" args={[env.skyColor]} />
+      {env.fog && <fog attach="fog" args={[env.skyColor, 6, 22]} />}
 
-      <ambientLight intensity={0.4} />
+      <ambientLight intensity={env.ambientIntensity} />
       <directionalLight position={[3, 6, 2]} intensity={1.1} castShadow />
       <pointLight position={[-4, 3, -4]} intensity={20} color="#5577ff" />
 

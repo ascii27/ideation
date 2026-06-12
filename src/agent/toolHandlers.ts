@@ -67,7 +67,18 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
     }
 
     case 'update_object': {
-      const { id, ...patch } = args as unknown as { id: string } & UpdateArgs
+      const { id, ...rest } = args as unknown as { id: string } & UpdateArgs & {
+        scale?: unknown
+        glow?: unknown
+      }
+      const patch = rest as UpdateArgs
+      if (Array.isArray(rest.scale) && rest.scale.length === 3 && rest.scale.every((n) => typeof n === 'number')) {
+        patch.scale = rest.scale as [number, number, number]
+      } else {
+        delete patch.scale
+      }
+      if (typeof rest.glow === 'number') patch.glow = Math.max(0, rest.glow)
+      else delete patch.glow
       const obj = scene.update(id, patch)
       return obj
         ? { ok: true, id, scene: useScene.getState().summary() }
@@ -219,6 +230,15 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       if (typeof args.collision === 'boolean') patch.collision = args.collision
       const physics = scene.setPhysics(patch)
       return { ok: true, physics, scene: useScene.getState().summary() }
+    }
+
+    case 'set_environment': {
+      const patch: Partial<import('../scene/types').EnvironmentState> = {}
+      if (typeof args.skyColor === 'string') patch.skyColor = args.skyColor
+      if (typeof args.ambientIntensity === 'number') patch.ambientIntensity = Math.max(0, args.ambientIntensity)
+      if (typeof args.fog === 'boolean') patch.fog = args.fog
+      const environment = scene.setEnvironment(patch)
+      return { ok: true, environment, scene: useScene.getState().summary() }
     }
 
     case 'list_scene':

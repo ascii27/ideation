@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { solidHalfHeight, isSolidKind, OBJECT_GROUPS, OBJECT_GROUPS_NO_COLLIDE, FLOOR_GROUPS } from './geometry'
+import { effectiveScale, scaledColliderArgs } from './geometry'
 
 describe('solidHalfHeight', () => {
   it('returns the y half-extent so the base sits at the floor', () => {
@@ -37,5 +38,29 @@ describe('interaction groups', () => {
     expect(typeof OBJECT_GROUPS_NO_COLLIDE).toBe('number')
     expect(typeof FLOOR_GROUPS).toBe('number')
     expect(OBJECT_GROUPS).not.toBe(OBJECT_GROUPS_NO_COLLIDE)
+  })
+})
+
+describe('per-axis scale helpers', () => {
+  it('effectiveScale multiplies size by per-axis scale, defaulting to uniform', () => {
+    expect(effectiveScale(0.5)).toEqual([0.5, 0.5, 0.5])
+    expect(effectiveScale(0.5, [2, 1, 0.5])).toEqual([1, 0.5, 0.25])
+  })
+
+  it('box collider half-extents scale per axis', () => {
+    const c = scaledColliderArgs('box', [1, 2, 0.5])
+    expect(c).toEqual({ shape: 'cuboid', args: [0.5, 1, 0.25] })
+  })
+
+  it('sphere collider uses the mean scaled radius (no ellipsoid in rapier)', () => {
+    const c = scaledColliderArgs('sphere', [1, 2, 3])
+    // unit sphere radius 0.6; mean of (0.6,1.2,1.8) = 1.2
+    expect(c).toEqual({ shape: 'ball', args: [1.2] })
+  })
+
+  it('cylinder collider: half-height from y, radius from mean of x/z', () => {
+    const c = scaledColliderArgs('cylinder', [2, 1, 2])
+    // halfHeight 0.5*y=0.5 ; radius 0.5*mean(2,2)=1
+    expect(c).toEqual({ shape: 'cylinder', args: [0.5, 1] })
   })
 })

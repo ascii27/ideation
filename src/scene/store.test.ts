@@ -7,6 +7,7 @@ import { presetToMaterial } from './materials'
 beforeEach(() => {
   useScene.getState().clear()
   useScene.getState().setPhysics({ gravity: true, collision: true })
+  useScene.getState().setEnvironment({ skyColor: '#0a0a0f', ambientIntensity: 0.4, fog: true })
 })
 
 describe('scene store', () => {
@@ -223,6 +224,76 @@ describe('set_physics tool', () => {
     const r = (await handleToolCall('set_physics', {})) as { ok: boolean; physics: unknown }
     expect(r.ok).toBe(true)
     expect(useScene.getState().physics).toEqual({ gravity: true, collision: true })
+  })
+})
+
+describe('environment state', () => {
+  it('defaults to the prior hardcoded scene values', () => {
+    expect(useScene.getState().environment).toEqual({
+      skyColor: '#0a0a0f',
+      ambientIntensity: 0.4,
+      fog: true,
+    })
+  })
+
+  it('setEnvironment merges partial patches, leaving other fields unchanged', () => {
+    useScene.getState().setEnvironment({ skyColor: '#88bbff' })
+    expect(useScene.getState().environment).toEqual({
+      skyColor: '#88bbff',
+      ambientIntensity: 0.4,
+      fog: true,
+    })
+    useScene.getState().setEnvironment({ ambientIntensity: 1.2, fog: false })
+    expect(useScene.getState().environment).toEqual({
+      skyColor: '#88bbff',
+      ambientIntensity: 1.2,
+      fog: false,
+    })
+  })
+
+  it('set_environment tool applies a partial patch and reports state', async () => {
+    const r = (await handleToolCall('set_environment', { skyColor: '#223366', ambientIntensity: 1 })) as {
+      ok: boolean
+      environment: { skyColor: string; ambientIntensity: number; fog: boolean }
+      scene: string
+    }
+    expect(r.ok).toBe(true)
+    expect(r.environment).toEqual({ skyColor: '#223366', ambientIntensity: 1, fog: true })
+    expect(typeof r.scene).toBe('string')
+    expect(useScene.getState().environment.skyColor).toBe('#223366')
+  })
+})
+
+describe('scale & glow', () => {
+  it('persists per-axis scale and glow on spawn and update', () => {
+    const o = useScene.getState().spawn({ kind: 'box', scale: [2, 1, 0.5], glow: 1.5 })
+    expect(o.scale).toEqual([2, 1, 0.5])
+    expect(o.glow).toBe(1.5)
+    const u = useScene.getState().update(o.id, { scale: [1, 3, 1], glow: 0 })
+    expect(u?.scale).toEqual([1, 3, 1])
+    expect(u?.glow).toBe(0)
+  })
+
+  it('summary reflects stretched and glowing objects', () => {
+    useScene.getState().spawn({ kind: 'box', color: 'red', scale: [3, 1, 1], glow: 2 })
+    const s = useScene.getState().summary()
+    expect(s).toContain('stretched')
+    expect(s).toContain('glowing')
+  })
+
+  it('update_object tool applies scale and glow', async () => {
+    const box = useScene.getState().spawn({ kind: 'box' })
+    const r = (await handleToolCall('update_object', { id: box.id, scale: [1, 2.5, 1], glow: 1 })) as { ok: boolean }
+    expect(r.ok).toBe(true)
+    const got = useScene.getState().objects[0]
+    expect(got.scale).toEqual([1, 2.5, 1])
+    expect(got.glow).toBe(1)
+  })
+
+  it('update_object ignores a malformed scale (not 3 numbers)', async () => {
+    const box = useScene.getState().spawn({ kind: 'box' })
+    await handleToolCall('update_object', { id: box.id, scale: [1, 2] })
+    expect(useScene.getState().objects[0].scale).toBeUndefined()
   })
 })
 
