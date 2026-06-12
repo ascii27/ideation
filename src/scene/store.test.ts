@@ -340,4 +340,17 @@ describe('activity feed', () => {
     useScene.getState().dismissActivity(id)
     expect(useScene.getState().activities).toHaveLength(0)
   })
+
+  it('quick tools emit a toast (e.g. create_text_panel)', async () => {
+    await handleToolCall('create_text_panel', { text: 'hi' })
+    const texts = useScene.getState().activities.map((a) => a.text)
+    expect(texts.some((t) => t.includes('note'))).toBe(true)
+  })
+
+  it('a failed image emits an active→error activity', async () => {
+    // No network in tests → the fetch throws → activity ends as error.
+    await handleToolCall('create_image_panel', { prompt: 'a cat' })
+    const a = useScene.getState().activities
+    expect(a.some((x) => x.status === 'error')).toBe(true)
+  })
 })

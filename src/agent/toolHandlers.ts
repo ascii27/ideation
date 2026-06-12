@@ -63,6 +63,7 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
   switch (name) {
     case 'spawn_object': {
       const obj = scene.spawn(args as unknown as SpawnArgs)
+      useScene.getState().toast(`added a ${obj.color} ${obj.kind}`)
       return { ok: true, id: obj.id, scene: useScene.getState().summary() }
     }
 
@@ -98,6 +99,7 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         color: (args as { color?: string }).color,
         position: (args as unknown as SpawnArgs).position,
       })
+      useScene.getState().toast('added a note')
       return { ok: true, id: obj.id, scene: useScene.getState().summary() }
     }
 
@@ -114,6 +116,7 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         position: (args as unknown as SpawnArgs).position,
         label: prompt ?? url,
       })
+      const act = useScene.getState().beginActivity('generating image…')
       try {
         const resp = await fetch('/api/image', {
           method: 'POST',
@@ -125,9 +128,11 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
           throw new Error(json.error ?? `image request failed (${resp.status})`)
         }
         useScene.getState().update(obj.id, { src: json.dataUrl })
+        useScene.getState().endActivity(act, 'image ready')
         return { ok: true, id: obj.id, scene: useScene.getState().summary() }
       } catch (err) {
         useScene.getState().update(obj.id, { text: 'image failed' })
+        useScene.getState().endActivity(act, 'image failed', 'error')
         return { ok: false, id: obj.id, error: String(err), scene: useScene.getState().summary() }
       }
     }
@@ -148,6 +153,7 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         position,
         attribution: catalog?.attribution,
       })
+      const act = useScene.getState().beginActivity('finding model…')
       try {
         let glb: string
         let attribution = catalog?.attribution
@@ -167,9 +173,11 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         }
         const src = `/api/models/proxy?url=${encodeURIComponent(glb)}`
         useScene.getState().update(obj.id, { src, attribution })
+        useScene.getState().endActivity(act, 'model ready')
         return { ok: true, id: obj.id, scene: useScene.getState().summary() }
       } catch (err) {
         useScene.getState().update(obj.id, { text: 'model failed' })
+        useScene.getState().endActivity(act, 'model failed', 'error')
         return { ok: false, id: obj.id, error: String(err), scene: useScene.getState().summary() }
       }
     }
@@ -184,11 +192,14 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       if (!prompt && !url && !polyhaven) {
         return { ok: false, error: 'Provide prompt, url, or polyhaven.', scene: scene.summary() }
       }
+      const act = useScene.getState().beginActivity('applying texture…')
       try {
         const dataUrl = await fetchTextureDataUrl({ prompt, url, polyhaven })
         useScene.getState().update(id, { textureSrc: dataUrl, textureRepeat: repeat })
+        useScene.getState().endActivity(act, 'texture applied')
         return { ok: true, id, scene: useScene.getState().summary() }
       } catch (err) {
+        useScene.getState().endActivity(act, 'texture failed', 'error')
         return { ok: false, id, error: String(err), scene: useScene.getState().summary() }
       }
     }
@@ -203,11 +214,14 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       if (!textureDesc && !polyhaven) {
         return { ok: true, id: obj.id, scene: useScene.getState().summary() }
       }
+      const act = useScene.getState().beginActivity('generating ground texture…')
       try {
         const dataUrl = await fetchTextureDataUrl({ prompt: textureDesc, polyhaven })
         useScene.getState().update(obj.id, { textureSrc: dataUrl })
+        useScene.getState().endActivity(act, 'ground ready')
         return { ok: true, id: obj.id, scene: useScene.getState().summary() }
       } catch (err) {
+        useScene.getState().endActivity(act, 'ground texture failed', 'error')
         return { ok: false, id: obj.id, error: String(err), scene: useScene.getState().summary() }
       }
     }
@@ -238,6 +252,7 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       if (typeof args.ambientIntensity === 'number') patch.ambientIntensity = Math.max(0, args.ambientIntensity)
       if (typeof args.fog === 'boolean') patch.fog = args.fog
       const environment = scene.setEnvironment(patch)
+      useScene.getState().toast('changed the environment')
       return { ok: true, environment, scene: useScene.getState().summary() }
     }
 
