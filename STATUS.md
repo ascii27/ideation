@@ -59,6 +59,7 @@ Quest Browser ──HTTPS──> https://armchair-sparkle.exe.xyz/  (exe.dev VM,
      ├── GET  /api/models/proxy    → stream a GLB same-origin
      ├── GET  /api/texture         → Poly Haven CC0 diffuse map → data URL (no key)
      ├── POST /api/log             → client→stdout log bridge (journalctl; see scripts/logs.sh)
+     ├── POST /api/vision          → describe a scene screenshot (vision model; look_at_scene)
      └── GET  /api/health
 
    Frontend (React + TS, React Three Fiber + @react-three/xr):
@@ -94,6 +95,9 @@ always knows what exists and where (lightweight spatial memory within a session)
 | `src/xr/AgentAvatar.tsx` | Glass avatar (state colors, speaking pulse, click → settings); **lazy-follows the user**; mounts the status bubble |
 | `src/xr/Locomotion.tsx` | Thumbstick locomotion: left-stick **hop**, right-stick **45° snap-turn** (head-pivot) |
 | `src/xr/StatusBubble.tsx` | Floating activity HUD above the avatar (loading/done/error lines, auto-expire) |
+| `src/xr/SceneCapture.tsx` | Renders the scene to an offscreen target → JPEG (XR-safe); the agent's "eyes" |
+| `src/xr/captureBridge.ts` | Singleton bridge so the tool handler can trigger a capture (`registerCapturer`/`captureScene`) |
+| `server/vision.ts` | `/api/vision` — describe a scene screenshot via a vision model (`VISION_MODEL`) |
 | `src/xr/SettingsPanel.tsx`, `VrButton.tsx`, `CreditsPanel.tsx` | In-VR UI |
 | `src/agent/tools.ts` | Tool JSON schemas (shared with the server session) |
 | `src/agent/toolHandlers.ts` | `handleToolCall` — executes tools against the store |
@@ -116,7 +120,9 @@ always knows what exists and where (lightweight spatial memory within a session)
 (generate / URL / Poly Haven CC0), `set_material` (metal/glass/plastic/wood/matte +
 metalness/roughness/color), `set_physics` (toggle gravity + collision),
 `set_environment` (**sky/background color, ambient light intensity, fog**),
-`create_ground` (large flat textured ground plane), `list_scene`, `clear_scene`.
+`create_ground` (large flat textured ground plane),
+`look_at_scene` (**the agent "sees": snapshot the view or a focused object → vision model → spoken description**),
+`list_scene`, `clear_scene`.
 
 User-side (not agent): **teleport** (point a controller at the floor, release),
 **thumbstick locomotion** (left stick = hop ~1.5 m in the gaze-relative pushed direction;
@@ -131,8 +137,10 @@ is now itself a `TeleportTarget`, and thumbstick hop is a raycast-independent fa
 
 - `OPENAI_API_KEY` — Realtime voice + `gpt-image-1`. **Set.**
 - `POLY_PIZZA_API_KEY` — Poly Pizza model search. **Set.**
+- `OPENAI_API_KEY` also powers the vision model behind `/api/vision` (`look_at_scene`).
 - Poly Haven needs no key. Optional overrides: `REALTIME_MODEL`, `REALTIME_VOICE`,
-  `IMAGE_MODEL`, `IMAGE_SIZE`, `PORT` (default 3000; exe.dev proxy points here).
+  `IMAGE_MODEL`, `IMAGE_SIZE`, `VISION_MODEL` (default `gpt-4o-mini`), `PORT` (default 3000;
+  exe.dev proxy points here).
 - The systemd unit loads this `.env`. After changing it: `sudo systemctl restart ideation`.
 
 ## Phases completed (all merged to `main`)
@@ -178,6 +186,16 @@ All PRs (#1–#7) are merged. **Effort A = PR #8** (`effort-a-positioning-physic
   **Status HUD**: a transient `activities` feed in the store (`beginActivity`/`endActivity`/`toast`),
   emitted by the async + quick tool handlers, rendered by `src/xr/StatusBubble.tsx` above the
   avatar (loading → done/error, auto-expiring). Design + plan in `docs/superpowers/`.
+
+- **Agent vision — `look_at_scene`** (`agent-vision-look-at-scene`): the agent can now **see** the
+  space. It calls `look_at_scene` (optionally `focus`ed on an object id); `src/xr/SceneCapture.tsx`
+  renders the scene to an offscreen target → JPEG (XR-safe: toggles `gl.xr.enabled` off around the
+  render, restored in a `finally`), reachable from the handler via the `src/xr/captureBridge.ts`
+  singleton; the JPEG is POSTed to **`/api/vision`** (`server/vision.ts`, `VISION_MODEL` default
+  `gpt-4o-mini`, key server-side) and the returned **text description** comes back as the tool result
+  for the agent to speak. Solves "the wrong model loaded" — the agent verifies what's actually there.
+  Voice-triggered by design (you ask it to look; no manual button). Pure `framingCamera` helper in
+  `src/scene/geometry.ts`. Design + plan in `docs/superpowers/`.
 
 ## Not done yet / next steps
 
