@@ -4,6 +4,7 @@ import { createXRStore, XR, XROrigin } from '@react-three/xr'
 import { Vector3 } from 'three'
 import { Scene } from './xr/Scene'
 import { Locomotion } from './xr/Locomotion'
+import { SceneCapture } from './xr/SceneCapture'
 import { useRealtimeSession } from './agent/useRealtimeSession'
 import type { RealtimeStatus } from './agent/realtime'
 
@@ -40,6 +41,7 @@ export function App() {
             onMove={setPlayerPos}
             onYaw={setPlayerYaw}
           />
+          <SceneCapture />
           <Scene
             status={status}
             onConnect={connect}
