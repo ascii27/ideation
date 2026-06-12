@@ -34,19 +34,20 @@ export function Scene({
       <directionalLight position={[3, 6, 2]} intensity={1.1} castShadow />
       <pointLight position={[-4, 3, -4]} intensity={20} color="#5577ff" />
 
-      {/* Teleport surface: a near-invisible solid floor the teleport ray can hit
-          (the grid is only lines and can't be raycast). Point the controller at
-          the floor and release to teleport. */}
+      {/* Visible solid ground at y=0 — a real floor surface so ground level is
+          unmistakable and objects clearly rest on it. Also the teleport target
+          (the grid is only lines and can't be raycast). Point a controller at the
+          floor and release to teleport. */}
       <TeleportTarget onTeleport={onTeleport}>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-          <planeGeometry args={[60, 60]} />
-          <meshStandardMaterial color="#0c0c16" roughness={1} />
+          <planeGeometry args={[120, 120]} />
+          <meshStandardMaterial color="#15151f" roughness={0.95} metalness={0} />
         </mesh>
       </TeleportTarget>
 
-      {/* Floor grid for spatial reference */}
+      {/* Floor grid for spatial reference, sitting just on top of the ground. */}
       <Grid
-        position={[0, 0.001, 0]}
+        position={[0, 0.002, 0]}
         args={[30, 30]}
         cellSize={0.5}
         cellThickness={0.6}

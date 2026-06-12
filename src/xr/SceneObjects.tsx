@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useFrame } from '@react-three/fiber'
 import { Text, useGLTF } from '@react-three/drei'
 import { Handle, type HandleState } from '@react-three/handle'
 import { RigidBody, type RapierRigidBody } from '@react-three/rapier'
@@ -90,9 +91,18 @@ const BODY_KINEMATIC_POSITION = 2
 // to dynamic and its resting transform is written back to the store (agent memory).
 // Collision toggling swaps the collider interaction groups; gravity toggling is
 // handled globally by the <Physics> gravity prop in Scene.tsx.
+//
+// The grab target is a SEPARATE, static group at scene/world level — NOT a child
+// of the rigid body. @react-three/handle measures the drag delta in the target's
+// parent frame, so the target must live in world space; if it were nested under
+// the body (which we move to follow the hand) the measured delta would collapse to
+// zero and the object would refuse to move. We mirror the body's transform into
+// this target every idle frame so each grab starts from the object's real pose,
+// then drive the body kinematically from the target-space drag during the grab.
 function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNode }) {
   const bodyRef = useRef<RapierRigidBody>(null)
-  const handleRef = useRef<Group>(null)
+  const targetRef = useRef<Group>(null)
+  const grabbing = useRef(false)
   const collision = useScene((s) => s.physics.collision)
   const gravity = useScene((s) => s.physics.gravity)
 
@@ -112,11 +122,25 @@ function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNod
     body.setAngvel({ x: 0, y: 0, z: 0 }, true)
   }, [obj.position, obj.rotation])
 
+  // While not grabbing, keep the static grab-target glued to the body so the next
+  // grab anchors at the object's current world pose.
+  useFrame(() => {
+    if (grabbing.current) return
+    const body = bodyRef.current
+    const target = targetRef.current
+    if (!body || !target) return
+    const t = body.translation()
+    target.position.set(t.x, t.y, t.z)
+    const r = body.rotation()
+    target.quaternion.set(r.x, r.y, r.z, r.w)
+  })
+
   const apply = useCallback(
     (state: HandleState<unknown>) => {
       const body = bodyRef.current
       if (!body) return
       if (state.first) {
+        grabbing.current = true
         body.setBodyType(BODY_KINEMATIC_POSITION, true)
       }
       const p = state.current.position
@@ -124,6 +148,7 @@ function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNod
       body.setNextKinematicTranslation({ x: p.x, y: p.y, z: p.z })
       body.setNextKinematicRotation({ x: q.x, y: q.y, z: q.z, w: q.w })
       if (state.last) {
+        grabbing.current = false
         body.setBodyType(BODY_DYNAMIC, true)
         if (!gravity) {
           body.setLinvel({ x: 0, y: 0, z: 0 }, true)
@@ -142,20 +167,24 @@ function PhysicsObject({ obj, children }: { obj: SceneObject; children: ReactNod
   )
 
   return (
-    <RigidBody
-      ref={bodyRef}
-      colliders={colliders}
-      collisionGroups={collision ? OBJECT_GROUPS : OBJECT_GROUPS_NO_COLLIDE}
-      position={obj.position}
-      rotation={obj.rotation ?? [0, 0, 0]}
-      canSleep
-    >
-      <group ref={handleRef}>
-        <Handle targetRef={handleRef} scale={false} multitouch={false} apply={apply}>
+    <>
+      <RigidBody
+        ref={bodyRef}
+        colliders={colliders}
+        collisionGroups={collision ? OBJECT_GROUPS : OBJECT_GROUPS_NO_COLLIDE}
+        position={obj.position}
+        rotation={obj.rotation ?? [0, 0, 0]}
+        canSleep
+      >
+        {/* targetRef points at the static group below; the pickable mesh (children)
+            is bound as the handle surface and stays inside the body. */}
+        <Handle targetRef={targetRef} scale={false} multitouch={false} apply={apply}>
           {children}
         </Handle>
-      </group>
-    </RigidBody>
+      </RigidBody>
+      {/* Static world-space grab reference (not moved by physics). */}
+      <group ref={targetRef} />
+    </>
   )
 }
 

@@ -17,8 +17,9 @@ const STATE_COLOR: Record<RealtimeStatus, string> = {
 const RADIUS = 0.13
 
 // Where the companion hovers relative to the user's head: down, to the right, and
-// a little in front, so it sits at the lower-right of the field of view.
-const FOLLOW_OFFSET = new Vector3(0.45, -0.35, -0.7)
+// out in front, so it sits at the lower-right of the field of view at a comfortable
+// arm's-length-plus distance (~1.8 m out).
+const FOLLOW_OFFSET = new Vector3(0.7, -0.5, -1.6)
 
 // The agent's avatar: a glassy floating sphere with a glowing core. It pulses
 // while the agent speaks, turns green when listening, amber while connecting, and
@@ -41,6 +42,7 @@ export function AgentAvatar({
 
   // Reused scratch objects (avoid per-frame allocation).
   const desired = useMemo(() => new Vector3(), [])
+  const camPos = useMemo(() => new Vector3(), [])
   const camQuat = useMemo(() => new Quaternion(), [])
 
   useFrame((state, dt) => {
@@ -48,8 +50,13 @@ export function AgentAvatar({
     const group = groupRef.current
     if (group) {
       const cam = state.camera
+      // Use the camera's WORLD pose. In XR the camera is nested under the player
+      // rig (XROrigin), so cam.position is rig-local — teleporting/walking moves the
+      // rig, not cam.position. getWorldPosition captures the true head location so
+      // the companion actually follows you around the space.
       cam.getWorldQuaternion(camQuat)
-      desired.copy(FOLLOW_OFFSET).applyQuaternion(camQuat).add(cam.position)
+      cam.getWorldPosition(camPos)
+      desired.copy(FOLLOW_OFFSET).applyQuaternion(camQuat).add(camPos)
       // Smooth catch-up: fast enough to keep up, slow enough to "glide".
       const k = 1 - Math.exp(-6 * dt)
       group.position.lerp(desired, k)
