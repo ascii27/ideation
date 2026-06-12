@@ -22,11 +22,12 @@ describe('solidHalfHeight', () => {
 })
 
 describe('isSolidKind', () => {
-  it('is true for primitives and models, false for panels', () => {
+  it('is true for primitives and models, false for panels and ground', () => {
     expect(isSolidKind('box')).toBe(true)
     expect(isSolidKind('model')).toBe(true)
     expect(isSolidKind('text')).toBe(false)
     expect(isSolidKind('image')).toBe(false)
+    expect(isSolidKind('ground')).toBe(false)
   })
 })
 

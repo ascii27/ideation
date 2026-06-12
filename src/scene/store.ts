@@ -55,10 +55,15 @@ interface SceneState {
   setPhysics: (patch: Partial<PhysicsState>) => PhysicsState
 }
 
+// The ground surface sits centered on the origin, just above y=0 so it covers the
+// reference grid without z-fighting (objects still rest on the physics floor at 0).
+const GROUND_Y = 0.02
+
 // When no explicit position is given, place new objects in a loose arc in front
 // of the user (who stands near the origin looking toward -z). Solids rest on the
-// floor (base at y=0); panels float at eye-ish height.
+// floor (base at y=0); panels float at eye-ish height; the ground is centered low.
 function defaultPosition(index: number, kind: ObjectKind, size: number): [number, number, number] {
+  if (kind === 'ground') return [0, GROUND_Y, 0]
   const angle = -0.6 + 0.35 * index
   const radius = 2.2
   const x = round(Math.sin(angle) * radius)
@@ -81,7 +86,15 @@ export const useScene = create<SceneState>((set, get) => ({
     const n = (counters[args.kind] ?? 0) + 1
     const size =
       args.size ??
-      (args.kind === 'text' ? 1 : args.kind === 'image' ? 1.5 : args.kind === 'model' ? 0.7 : 0.5)
+      (args.kind === 'text'
+        ? 1
+        : args.kind === 'image'
+          ? 1.5
+          : args.kind === 'model'
+            ? 0.7
+            : args.kind === 'ground'
+              ? 80
+              : 0.5)
     const obj: SceneObject = {
       id: `${args.kind}-${n}`,
       kind: args.kind,
@@ -164,6 +177,7 @@ export const useScene = create<SceneState>((set, get) => ({
       if (o.kind === 'text') desc = `text "${o.text ?? ''}"`
       else if (o.kind === 'image') desc = o.src ? 'image' : 'image (loading)'
       else if (o.kind === 'model') desc = o.src ? `model (${o.label ?? 'object'})` : 'model (loading)'
+      else if (o.kind === 'ground') desc = o.textureSrc ? 'ground (textured)' : `${o.color} ground`
       else {
         const finish = o.textureSrc ? ' textured' : o.materialPreset ? ` ${o.materialPreset}` : ''
         desc = `${o.color} ${o.kind}${finish}`

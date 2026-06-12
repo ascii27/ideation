@@ -37,7 +37,8 @@ export function solidHalfHeight(kind: ObjectKind, size: number): number {
   }
 }
 
-// Solids participate in physics (gravity + collision). Panels do not.
+// Solids participate in physics (gravity + collision). Panels (text/image) and
+// the ground surface do not.
 export function isSolidKind(kind: ObjectKind): boolean {
-  return kind !== 'text' && kind !== 'image'
+  return kind !== 'text' && kind !== 'image' && kind !== 'ground'
 }

@@ -4,7 +4,17 @@
 
 import type { MaterialPreset } from './materials'
 
-export type ObjectKind = 'box' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'text' | 'image' | 'model'
+export type ObjectKind =
+  | 'box'
+  | 'sphere'
+  | 'cylinder'
+  | 'cone'
+  | 'torus'
+  | 'text'
+  | 'image'
+  | 'model'
+  // A large flat ground surface the scene sits on (scenery, non-physics).
+  | 'ground'
 
 /** Credit for an openly-licensed asset (CC-BY models need attribution shown). */
 export interface Attribution {

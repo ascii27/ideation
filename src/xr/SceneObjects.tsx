@@ -80,6 +80,9 @@ function GrabbableObject({ obj, children }: { obj: SceneObject; children: ReactN
 }
 
 function ObjectView({ obj }: { obj: SceneObject }) {
+  // The ground is static scenery — rendered directly (no grab/physics wrapper).
+  if (obj.kind === 'ground') return <GroundBody obj={obj} />
+
   let body: ReactNode
   if (obj.kind === 'text') body = <TextBody obj={obj} />
   else if (obj.kind === 'image') body = <ImageBody obj={obj} />
@@ -90,6 +93,26 @@ function ObjectView({ obj }: { obj: SceneObject }) {
     return <PhysicsObject obj={obj}>{body}</PhysicsObject>
   }
   return <GrabbableObject obj={obj}>{body}</GrabbableObject>
+}
+
+// A large flat ground plane the scene sits on. Lies horizontal at the object's y
+// (just above the floor so it covers the reference grid), with a tiled texture or
+// a flat color. Not grabbable and outside physics — it's scenery, not an object
+// you bump into (solids still rest on the physics floor at y=0).
+function GroundBody({ obj }: { obj: SceneObject }) {
+  const repeat = obj.textureRepeat ?? Math.min(40, Math.max(8, Math.round(obj.size / 4)))
+  const texture = usePrimitiveTexture(obj.textureSrc, repeat)
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={obj.position} receiveShadow>
+      <planeGeometry args={[obj.size, obj.size]} />
+      <meshStandardMaterial
+        map={texture ?? undefined}
+        color={texture ? '#ffffff' : obj.color}
+        roughness={0.95}
+        metalness={0}
+      />
+    </mesh>
+  )
 }
 
 // Rapier body-type numeric constants (avoid importing the enum name).

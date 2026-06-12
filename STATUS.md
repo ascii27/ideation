@@ -108,7 +108,7 @@ always knows what exists and where (lightweight spatial memory within a session)
 `spawn_model` (curated catalog first, else Poly Pizza search), `apply_texture`
 (generate / URL / Poly Haven CC0), `set_material` (metal/glass/plastic/wood/matte +
 metalness/roughness/color), `set_physics` (toggle gravity + collision),
-`list_scene`, `clear_scene`.
+`create_ground` (large flat textured ground plane), `list_scene`, `clear_scene`.
 
 User-side (not agent): **teleport** (point a controller at the floor, release) and
 **grab/move/rotate** any object (the moved transform is written back to the store so the

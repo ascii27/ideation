@@ -175,6 +175,27 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     type: 'function',
+    name: 'create_ground',
+    description:
+      'Lay down a large flat ground surface across the whole space — a wide textured floor the scene sits on (grass, sand, stone, dirt, water, etc.). Use this when the person asks for "ground", a floor, terrain, or a surface underfoot. It covers the reference grid. Describe the surface with texture, or name a real CC0 material with polyhaven; if they don\'t specify, pick a fitting one.',
+    parameters: {
+      type: 'object',
+      properties: {
+        texture: {
+          type: 'string',
+          description: 'Describe the ground surface to generate, e.g. "lush green grass", "beach sand", "cobblestone".',
+        },
+        polyhaven: {
+          type: 'string',
+          description: 'A real CC0 ground material to fetch from Poly Haven, e.g. "grass", "forest floor", "gravel".',
+        },
+        color: { type: 'string', description: 'Base color if no texture is used (CSS color/hex).' },
+        size: { type: 'number', description: 'Side length in meters. Default 80 (large).' },
+      },
+    },
+  },
+  {
+    type: 'function',
     name: 'set_physics',
     description:
       'Turn physics on or off in the space. gravity controls whether solid objects fall and settle (off = they float frozen in place). collision controls whether solids bump into each other (off = they pass through; they still rest on the floor). Both are on by default. Set only the flag(s) the person asked to change.',

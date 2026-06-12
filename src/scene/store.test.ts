@@ -175,6 +175,32 @@ describe('physics state + resting spawn', () => {
   })
 })
 
+describe('ground', () => {
+  it('spawns a large flat ground centered just above the floor', () => {
+    const g = useScene.getState().spawn({ kind: 'ground' })
+    expect(g.kind).toBe('ground')
+    expect(g.size).toBe(80)
+    expect(g.position[0]).toBe(0)
+    expect(g.position[2]).toBe(0)
+    expect(g.position[1]).toBeGreaterThan(0)
+    expect(g.position[1]).toBeLessThan(0.1)
+  })
+
+  it('create_ground without a texture makes a flat-color ground immediately', async () => {
+    const r = (await handleToolCall('create_ground', { color: '#556b2f', size: 100 })) as {
+      ok: boolean
+      id: string
+    }
+    expect(r.ok).toBe(true)
+    const obj = useScene.getState().objects[0]
+    expect(obj.kind).toBe('ground')
+    expect(obj.size).toBe(100)
+    expect(obj.color).toBe('#556b2f')
+    expect(obj.textureSrc).toBeUndefined()
+    expect(useScene.getState().summary()).toContain('ground')
+  })
+})
+
 describe('set_physics tool', () => {
   it('toggles gravity and reports the new physics state + scene', async () => {
     const r = (await handleToolCall('set_physics', { gravity: false })) as {
