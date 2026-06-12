@@ -58,6 +58,7 @@ Quest Browser ──HTTPS──> https://armchair-sparkle.exe.xyz/  (exe.dev VM,
      ├── GET  /api/models/search   → Poly Pizza search (POLY_PIZZA_API_KEY)
      ├── GET  /api/models/proxy    → stream a GLB same-origin
      ├── GET  /api/texture         → Poly Haven CC0 diffuse map → data URL (no key)
+     ├── POST /api/log             → client→stdout log bridge (journalctl; see scripts/logs.sh)
      └── GET  /api/health
 
    Frontend (React + TS, React Three Fiber + @react-three/xr):
@@ -86,20 +87,23 @@ always knows what exists and where (lightweight spatial memory within a session)
 | `server/image.ts` | `/api/image` — gpt-image-1 generate / URL proxy |
 | `server/models.ts` | `/api/models/search` (Poly Pizza) + `/api/models/proxy` (GLB) |
 | `server/texture.ts` | `/api/texture` — Poly Haven CC0 diffuse maps |
+| `server/log.ts` | `/api/log` — client→stdout log bridge (agent tool calls, etc.) |
 | `src/App.tsx` | Canvas, XR store (teleport pointers), XROrigin, DOM overlay |
-| `src/xr/Scene.tsx` | Room, lighting, grid, teleport floor, avatar, credits |
-| `src/xr/SceneObjects.tsx` | Renders store objects; grab wrapper; primitives/text/image/model |
-| `src/xr/AgentAvatar.tsx` | Glass avatar (state colors, speaking pulse, click → settings) |
+| `src/xr/Scene.tsx` | Room, lighting, grid, **`<Physics>` world + ground collider at y=0**, avatar, credits |
+| `src/xr/SceneObjects.tsx` | Renders store objects; physics rigid bodies + grab; primitives/text/image/model/**ground** |
+| `src/xr/AgentAvatar.tsx` | Glass avatar (state colors, speaking pulse, click → settings); **lazy-follows the user** |
 | `src/xr/SettingsPanel.tsx`, `VrButton.tsx`, `CreditsPanel.tsx` | In-VR UI |
 | `src/agent/tools.ts` | Tool JSON schemas (shared with the server session) |
 | `src/agent/toolHandlers.ts` | `handleToolCall` — executes tools against the store |
 | `src/agent/realtime.ts`, `useRealtimeSession.ts` | WebRTC connection + React hook |
 | `src/agent/agentAudio.ts` | Analyser on the agent's audio → avatar pulse level |
-| `src/scene/store.ts`, `types.ts` | Scene store (zustand) + `SceneObject` model |
+| `src/scene/store.ts`, `types.ts` | Scene store (zustand) + `SceneObject` model + `physics` state |
+| `src/scene/geometry.ts` | Pure helpers: base-on-floor heights, physics collision-group masks |
 | `src/scene/modelCatalog.ts` | Curated CC0 GLB catalog (keyword → model) |
 | `src/scene/materials.ts` | Material presets → physical material params |
-| `src/scene/store.test.ts` | Unit tests (18) for store / handlers / catalog / materials |
-| `scripts/deploy.sh`, `deploy/ideation.service` | Deploy + systemd unit |
+| `src/scene/store.test.ts`, `geometry.test.ts` | Unit tests (34 total) for store / handlers / physics / geometry / materials |
+| `scripts/deploy.sh`, `scripts/logs.sh`, `deploy/ideation.service` | Deploy + log fetch + systemd unit |
+| `docs/superpowers/specs/`, `plans/` | Effort A design spec + implementation plan |
 
 ## Agent tools (what the agent can do)
 
@@ -134,27 +138,41 @@ agent's memory stays correct).
   auto-normalized (recenter + uniform-scale); in-scene credits for attribution.
 - **5C** Texturing & materials — `apply_texture` (generated / URL / Poly Haven CC0 PBR) +
   `set_material` presets.
-- **Physics & positioning** (Effort A) — the grid is now solid **ground at y=0** (fixed Rapier
-  collider via `@react-three/rapier`). Solids (primitives + models) are rigid bodies that
-  **rest on the floor** with **gravity + collision on by default** — no more buried objects.
-  Grab drives a body kinematically and drops/settles on release (transform synced back to the
-  store). Toggle by voice via `set_physics` (gravity/collision). Text/image panels stay
-  floating (outside physics). The agent **avatar follows the user** at the lower-right of view,
-  ~40% smaller (lazy damped follow). Spec + plan in `docs/superpowers/`.
+- **Physics & positioning (Effort A)** — solid **ground at y=0** (fixed Rapier collider via
+  `@react-three/rapier`). Solids (primitives + models) are rigid bodies that **rest on the
+  floor**, **gravity + collision on by default**; toggle by voice via `set_physics`. Primitives
+  use exact analytic colliders (ball/cylinder/cone/cuboid); **models use a stable explicit box
+  collider** (NOT auto-hull, which floated them by ~size/2) and collide with the floor only +
+  locked rotation so they sit level & upright. Grab drives a body kinematically and drops/settles
+  on release; the grab `targetRef` is a static world-space group (a body-nested target broke
+  grabbing). Text/image panels stay floating (outside physics). The **avatar lazy-follows the
+  user** at the lower-right, ~40% smaller. `apply_texture` now textures **models too** (per-
+  instance material clone), with a **Poly Haven→generate fallback**. New **`create_ground`** lays
+  a large flat textured ground plane. **Logging**: `/api/log` bridge + `scripts/logs.sh` surface
+  agent tool calls / texture / image events to journalctl. Spec + plan in `docs/superpowers/`.
 
-All PRs (#1–#7) are merged. Effort A is on branch `effort-a-positioning-physics` (PR #8).
+All PRs (#1–#7) are merged. **Effort A = PR #8** (`effort-a-positioning-physics`) — merged.
 
 ## Not done yet / next steps
 
-- **Phase 4 — spatial memory & persistence** (the main remaining roadmap item): persist the
-  scene so a session resumes where it left off (localStorage and/or server), named references
-  ("put the tree where the red box was"), and group/arrange tools. Spatial memory currently
-  lives only in-session via the scene summary; nothing is persisted across reloads.
-- **Snap-turn** locomotion (thumbstick rotate) was intentionally skipped in 5A; teleport +
-  physical turning is all there is for now.
-- **Texturing targets primitives only**; loaded GLB models keep their own materials (tinting/
-  texturing models is a possible follow-up).
-- **Grab** currently allows translate + rotate (scale disabled).
+- **Immediate: a few more "basics" polish items** (current intent before bigger features). To be
+  fleshed out at the start of the next session — the user wants to fix more fundamentals before
+  external-data work.
+- **Loading/status indicators for async ops** (flagged follow-up): ground textures take 10–20 s to
+  generate with **no visible feedback** right now. Want a per-object loading state + an inline
+  "generating ground texture…" indicator, maybe a small status HUD near the avatar. (Background
+  task chip was created for this.)
+- **Effort B — external data integrations** (agreed next big effort, deferred): pull internet
+  content into VR as virtual objects, e.g. "the weather in Tokyo for the next 7 days." Server-side
+  fetch route + a new agent tool (e.g. `visualize_data`); agent decides the representation if the
+  user doesn't specify. Brainstorm as its own spec.
+- **Phase 4 — spatial memory & persistence**: persist the scene across reloads (localStorage and/or
+  server), named references ("put the tree where the red box was"), group/arrange tools.
+- **Snap-turn** locomotion (thumbstick rotate) intentionally skipped; teleport + physical turning
+  only.
+- **Grab** allows translate + rotate (scale disabled).
+- **Known minor**: the ground surface sits ~2 cm above y=0, so solids rest a hair into it
+  (intentional, looks natural); primitives currently pass through models (models are floor-only).
 
 ## Conventions & gotchas
 
@@ -172,11 +190,22 @@ All PRs (#1–#7) are merged. Effort A is on branch `effort-a-positioning-physic
 - Provider note: voice + images are **OpenAI**; models = **Poly Pizza** (CC0 + CC-BY) and
   **Khronos sample assets**; textures = **Poly Haven** (CC0). Respect CC-BY attribution
   (surfaced via the in-scene Credits panel).
+- **Physics (`@react-three/rapier` v1 — pinned for R3F v8; v2 needs R3F v9).** `isSolidKind`
+  (`src/scene/geometry.ts`) decides what's a physics body (primitives + models, NOT text/image/
+  ground). Models: explicit box collider sized from `size`, floor-only collision, locked rotation
+  — do **not** revert to `colliders="hull"` (it builds from the centered loading placeholder and
+  ejects the body upward by ~size/2). Grab `targetRef` must stay a static world-space group, not a
+  body-nested one. `set_physics` toggles live via the `<Physics gravity>` prop + per-body
+  `collisionGroups`.
 
 ## First things to do in a new session
 
-1. Read this file and skim `src/scene/store.ts`, `src/agent/tools.ts`, `src/agent/toolHandlers.ts`.
-2. `git status` / `git log --oneline -8` to confirm you're current on `main`.
+1. Read this file and skim `src/scene/store.ts`, `src/agent/tools.ts`, `src/agent/toolHandlers.ts`,
+   `src/xr/SceneObjects.tsx` (physics/grab/ground), `src/scene/geometry.ts`.
+2. `git status` / `git log --oneline -8` to confirm you're current on `main` (Effort A / PR #8 merged).
 3. If changing behavior: branch off `main`, build with `npm run typecheck && npm test && npm run build`,
-   then `./scripts/deploy.sh` and verify at https://armchair-sparkle.exe.xyz/.
-4. Likely next feature: **Phase 4 (spatial memory/persistence)** — see above.
+   then `./scripts/deploy.sh` and verify at https://armchair-sparkle.exe.xyz/. Use `./scripts/logs.sh`
+   to watch what the agent actually did on the server while testing.
+4. **Next up: a few more "basics" polish fixes** (ask the user what's on the list), likely including
+   loading/status indicators. Then **Effort B (external data integrations)**. Phase 4 (persistence)
+   remains the larger roadmap item.
