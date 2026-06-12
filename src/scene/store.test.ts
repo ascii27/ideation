@@ -280,6 +280,21 @@ describe('scale & glow', () => {
     expect(s).toContain('stretched')
     expect(s).toContain('glowing')
   })
+
+  it('update_object tool applies scale and glow', async () => {
+    const box = useScene.getState().spawn({ kind: 'box' })
+    const r = (await handleToolCall('update_object', { id: box.id, scale: [1, 2.5, 1], glow: 1 })) as { ok: boolean }
+    expect(r.ok).toBe(true)
+    const got = useScene.getState().objects[0]
+    expect(got.scale).toEqual([1, 2.5, 1])
+    expect(got.glow).toBe(1)
+  })
+
+  it('update_object ignores a malformed scale (not 3 numbers)', async () => {
+    const box = useScene.getState().spawn({ kind: 'box' })
+    await handleToolCall('update_object', { id: box.id, scale: [1, 2] })
+    expect(useScene.getState().objects[0].scale).toBeUndefined()
+  })
 })
 
 describe('model catalog', () => {

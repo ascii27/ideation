@@ -67,7 +67,18 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
     }
 
     case 'update_object': {
-      const { id, ...patch } = args as unknown as { id: string } & UpdateArgs
+      const { id, ...rest } = args as unknown as { id: string } & UpdateArgs & {
+        scale?: unknown
+        glow?: unknown
+      }
+      const patch = rest as UpdateArgs
+      if (Array.isArray(rest.scale) && rest.scale.length === 3 && rest.scale.every((n) => typeof n === 'number')) {
+        patch.scale = rest.scale as [number, number, number]
+      } else {
+        delete patch.scale
+      }
+      if (typeof rest.glow === 'number') patch.glow = Math.max(0, rest.glow)
+      else delete patch.glow
       const obj = scene.update(id, patch)
       return obj
         ? { ok: true, id, scene: useScene.getState().summary() }

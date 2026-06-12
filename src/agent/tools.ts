@@ -64,6 +64,19 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           minItems: 3,
           maxItems: 3,
         },
+        scale: {
+          type: 'array',
+          description:
+            'Absolute per-axis stretch multipliers [x, y, z]. 1 = unchanged, 2 = twice as long on that axis, 0.5 = squished to half. Use to stretch or squish an object (e.g. [1, 3, 1] makes it tall and thin).',
+          items: { type: 'number' },
+          minItems: 3,
+          maxItems: 3,
+        },
+        glow: {
+          type: 'number',
+          description:
+            'Make the object emit light (be a light source). 0 = off. ~1 = soft like a candle, higher (~3+) = bright like a lamp or sun. The glow takes the object\'s color.',
+        },
       },
       required: ['id'],
     },
