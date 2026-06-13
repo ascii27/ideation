@@ -30,6 +30,13 @@ describe('visualize core helpers', () => {
     expect(h[1]).toBeCloseTo(0.2)
   })
 
+  it('scales correctly across negative values (span math is sign-agnostic)', () => {
+    const h = normalizeHeights([-10, 0, 10])
+    expect(h[0]).toBeCloseTo(_CONST.MIN_BAR) // series min → MIN_BAR
+    expect(h[2]).toBeCloseTo(_CONST.MAX_BAR) // series max → MAX_BAR
+    expect(h[1]).toBeCloseTo(1.1)            // midpoint of the -10..10 span
+  })
+
   it('picks a layout from the data shape', () => {
     expect(pickLayout([{ label: 'a' }])).toBe('stat')
     expect(pickLayout([{ label: 'a', value: 1 }, { label: 'b', value: 2 }])).toBe('bar_chart')
@@ -120,5 +127,33 @@ describe('box layouts', () => {
     expect(markers[0].position[0]).toBeLessThan(markers[2].position[0])
     // markers rest on the floor
     expect(markers[0].position[1]).toBeCloseTo(_CONST.MARKER / 2)
+  })
+
+  it('bar_chart with a single point: one full-height bar centred on the anchor', () => {
+    const specs = layoutBarChart([{ label: 'Solo', value: 42 }], [0, 1.3, -2.5])
+    const bars = specs.filter((s) => s.kind === 'box')
+    const labels = specs.filter((s) => s.kind === 'text' && s.label !== 'title')
+    expect(bars).toHaveLength(1)
+    expect(labels).toHaveLength(1)
+    expect(specs.some((s) => s.label === 'title')).toBe(false)
+    // flat series (one point) → MAX_BAR; centred on anchor x
+    expect(bars[0].position[0]).toBeCloseTo(0)
+    expect(bars[0].position[1]).toBeCloseTo(_CONST.MAX_BAR / 2)
+    expect(bars[0].scale?.[1]).toBeCloseTo(_CONST.MAX_BAR / _CONST.BAR_WIDTH)
+  })
+
+  it('bar_chart with a missing value: short bar (MIN_BAR) and a number-less label', () => {
+    // A and C span the range; B has no value → treated as the series minimum.
+    const specs = layoutBarChart(
+      [{ label: 'A', value: 10 }, { label: 'B' }, { label: 'C', value: 30 }],
+      [0, 1.3, -2.5],
+    )
+    const bars = specs.filter((s) => s.kind === 'box')
+    // the value-less point (B) → MIN_BAR height, base on floor
+    expect(bars[1].position[1]).toBeCloseTo(_CONST.MIN_BAR / 2)
+    expect(bars[1].scale?.[1]).toBeCloseTo(_CONST.MIN_BAR / _CONST.BAR_WIDTH)
+    // its label shows just "B" — no number appended
+    const labelB = specs.find((s) => s.kind === 'text' && s.text?.startsWith('B'))
+    expect(labelB?.text).toBe('B')
   })
 })

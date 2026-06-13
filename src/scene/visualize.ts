@@ -91,8 +91,9 @@ export function pickLayout(series: DataPoint[]): Layout {
   return allNumeric ? 'bar_chart' : 'card_row'
 }
 
-// Re-exported for the layout functions in Task 3/4 (kept module-private constants
-// accessible to them since they live in this same file).
+// Exposed ONLY for the unit tests, so they can assert against the tuning
+// constants (e.g. BAR_GAP > BAR_WIDTH) without hardcoding values that we
+// expect to tweak often. The layout functions below use the bare constants.
 export const _CONST = { CARD_GAP, BAR_GAP, BAR_WIDTH, MIN_BAR, MAX_BAR, MARKER, TITLE_DY, LABEL_DY }
 
 /** Compose a card's multi-line text from whichever fields are present. Kept tiny
@@ -130,7 +131,9 @@ export function layoutCardRow(series: DataPoint[], anchor: Vec3, title?: string)
 
 /** stat: a single large text panel from the FIRST point (extra points ignored —
  *  use card_row/bar_chart for a series). Shows the big number with the caption and
- *  label beneath, and the title on top if given. */
+ *  label beneath, and the title on top if given.
+ *  PRECONDITION: caller guarantees a non-empty series (the visualize_data handler
+ *  validates this before calling) — we read series[0] without a runtime guard. */
 export function layoutStat(series: DataPoint[], anchor: Vec3, title?: string): ObjectSpec[] {
   const p = series[0]
   const big = p.value !== undefined ? `${p.value}` : p.label
