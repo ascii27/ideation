@@ -249,6 +249,40 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     type: 'function',
+    name: 'visualize_data',
+    description:
+      'Turn a set of data points into a visual in the space — a row of cards, a bar chart, a timeline, or a single big stat. Use this to SHOW data you have (e.g. a weather forecast you just looked up, or numbers you know) instead of only saying it. Provide the data as `series`; pick a `layout` that fits, or omit it to let a sensible one be chosen. Optionally add a `title`. Returns a groupId you can use to remove or move the whole visualization later.',
+    parameters: {
+      type: 'object',
+      properties: {
+        series: {
+          type: 'array',
+          description: 'The data points to show, in order.',
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string', description: 'Short label for this point, e.g. "Mon".' },
+              value: { type: 'number', description: 'Primary number — bar height / the stat figure.' },
+              secondary: { type: 'number', description: 'A second number to show (e.g. a low temperature).' },
+              caption: { type: 'string', description: 'Short qualitative text, e.g. "partly cloudy".' },
+              color: { type: 'string', description: 'Optional CSS color for this point.' },
+            },
+            required: ['label'],
+          },
+        },
+        layout: {
+          type: 'string',
+          enum: ['card_row', 'bar_chart', 'timeline', 'stat'],
+          description: 'How to lay it out. Omit to let a fitting layout be chosen automatically.',
+        },
+        title: { type: 'string', description: 'Optional heading shown above the visualization.' },
+        position,
+      },
+      required: ['series'],
+    },
+  },
+  {
+    type: 'function',
     name: 'list_scene',
     description: 'Get a summary of everything currently in the space and where it is.',
     parameters: { type: 'object', properties: {} },

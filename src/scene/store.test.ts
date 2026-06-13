@@ -446,3 +446,35 @@ describe('object grouping', () => {
     expect(useScene.getState().summary()).toContain(`${g} (2 objects)`)
   })
 })
+
+describe('visualize_data handler', () => {
+  it('spawns a grouped card row from a series and returns the groupId', async () => {
+    const series = [
+      { label: 'Mon', value: 24, secondary: 18, caption: 'cloudy' },
+      { label: 'Tue', value: 26, secondary: 19, caption: 'sun' },
+    ]
+    const r = (await handleToolCall('visualize_data', { series, layout: 'card_row', title: 'Tokyo' })) as {
+      ok: boolean; groupId: string; count: number; layout: string
+    }
+    expect(r.ok).toBe(true)
+    expect(r.layout).toBe('card_row')
+    // 2 cards + 1 title, all sharing the returned groupId
+    const grouped = useScene.getState().objects.filter((o) => o.groupId === r.groupId)
+    expect(grouped).toHaveLength(3)
+    expect(r.count).toBe(3)
+  })
+
+  it('uses the heuristic when no layout is given (all-numeric → bar_chart)', async () => {
+    const series = [{ label: 'A', value: 1 }, { label: 'B', value: 2 }]
+    const r = (await handleToolCall('visualize_data', { series })) as { ok: boolean; layout: string }
+    expect(r.ok).toBe(true)
+    expect(r.layout).toBe('bar_chart')
+  })
+
+  it('errors on an empty series without spawning anything', async () => {
+    const before = useScene.getState().objects.length
+    const r = (await handleToolCall('visualize_data', { series: [] })) as { ok: boolean }
+    expect(r.ok).toBe(false)
+    expect(useScene.getState().objects.length).toBe(before)
+  })
+})
