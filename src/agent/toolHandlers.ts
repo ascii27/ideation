@@ -292,7 +292,26 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       scene.clear()
       return { ok: true, scene: 'The space is empty.' }
 
-    default:
-      return { ok: false, error: `Unknown tool "${name}".` }
+    default: {
+      // Any tool not handled locally is a bridged MCP tool — forward it to the
+      // server, which owns the MCP connections (server/mcp/hub.ts). One path
+      // covers every present and future MCP tool; the Hub is the authority on
+      // whether the tool exists.
+      const act = useScene.getState().beginActivity(`running ${name}…`)
+      try {
+        const resp = await fetch('/api/mcp/call', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tool: name, args }),
+        })
+        const json = (await resp.json()) as { result?: unknown; error?: string }
+        if (!resp.ok || json.error) throw new Error(json.error ?? `tool failed (${resp.status})`)
+        useScene.getState().endActivity(act, `${name} done`)
+        return { ok: true, result: json.result, scene: useScene.getState().summary() }
+      } catch (err) {
+        useScene.getState().endActivity(act, `${name} failed`, 'error')
+        return { ok: false, error: String(err), scene: useScene.getState().summary() }
+      }
+    }
   }
 }
