@@ -94,3 +94,48 @@ export function pickLayout(series: DataPoint[]): Layout {
 // Re-exported for the layout functions in Task 3/4 (kept module-private constants
 // accessible to them since they live in this same file).
 export const _CONST = { CARD_GAP, BAR_GAP, BAR_WIDTH, MIN_BAR, MAX_BAR, MARKER, TITLE_DY, LABEL_DY }
+
+/** Compose a card's multi-line text from whichever fields are present. Kept tiny
+ *  and separate so the exact card formatting is trivial to tweak later. The
+ *  value/secondary pair is rendered as "24° / 18°" (weather-friendly), or just the
+ *  value alone when there is no secondary. */
+function cardText(p: DataPoint): string {
+  const lines: string[] = [p.label]
+  if (p.value !== undefined) {
+    lines.push(p.secondary !== undefined ? `${p.value}° / ${p.secondary}°` : `${p.value}`)
+  }
+  if (p.caption) lines.push(p.caption)
+  return lines.join('\n')
+}
+
+/** card_row: a horizontal row of floating text panels (one per point), centred on
+ *  the anchor at anchor.y. Optional title panel floats above the row centre.
+ *  Panels are `text` kind → no physics, so they stay exactly where placed. Best
+ *  for heterogeneous/qualitative data (the weather example reads great as cards). */
+export function layoutCardRow(series: DataPoint[], anchor: Vec3, title?: string): ObjectSpec[] {
+  const [ax, ay, az] = anchor
+  const xs = rowPositions(series.length, CARD_GAP, ax)
+  const specs: ObjectSpec[] = series.map((p, i) => ({
+    kind: 'text',
+    position: [xs[i], ay, az],
+    text: cardText(p),
+    color: p.color,
+    label: p.label,
+  }))
+  if (title) {
+    specs.push({ kind: 'text', position: [ax, round(ay + TITLE_DY), az], text: title, size: 1.4, label: 'title' })
+  }
+  return specs
+}
+
+/** stat: a single large text panel from the FIRST point (extra points ignored —
+ *  use card_row/bar_chart for a series). Shows the big number with the caption and
+ *  label beneath, and the title on top if given. */
+export function layoutStat(series: DataPoint[], anchor: Vec3, title?: string): ObjectSpec[] {
+  const p = series[0]
+  const big = p.value !== undefined ? `${p.value}` : p.label
+  const sub = [p.caption, p.value !== undefined ? p.label : undefined].filter(Boolean).join(' · ')
+  const body = sub ? `${big}\n${sub}` : `${big}`
+  const text = title ? `${title}\n${body}` : body
+  return [{ kind: 'text', position: anchor, text, size: 2, color: p.color, label: 'stat' }]
+}
