@@ -1,0 +1,5 @@
+{
+  "servers": [
+    { "id": "weather", "command": "npx", "args": ["tsx", "mcp-servers/weather/index.ts"], "env": {} }
+  ]
+}
