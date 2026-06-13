@@ -1,5 +1,6 @@
 import express, { Router } from 'express'
 import { TOOL_DEFINITIONS } from '../src/agent/tools.ts'
+import { hub } from './mcp/hub.ts'
 
 // OpenAI Realtime session config. The browser sends us its SDP offer; we attach
 // the session configuration + API key server-side and forward to OpenAI, then
@@ -37,6 +38,12 @@ looks right. Pass focus with an object id to look closely at one thing. If what 
 say so and fix it (try a different spawn_model query, or delete it). Don't overuse it — look when
 it genuinely helps, not after every action.
 
+You can also reach live information from the outside world through extra data tools when they are
+connected. For example, weather__forecast returns a real multi-day forecast for a place — daily
+high/low temperatures, the chance of rain, and the conditions. When the person asks something one
+of these tools can answer (like the week's weather somewhere), call the tool and tell them what it
+says in natural language. These calls take a moment, so briefly say it's on its way.
+
 Reference existing objects by their id (like "box-1") from the scene summary returned after each
 action. Don't read coordinates or ids aloud; just briefly say what you did in natural language.`
 
@@ -58,7 +65,7 @@ realtimeRouter.post(
       model: MODEL,
       instructions: INSTRUCTIONS,
       audio: { output: { voice: VOICE } },
-      tools: TOOL_DEFINITIONS,
+      tools: [...TOOL_DEFINITIONS, ...hub.getBridgedTools()],
       tool_choice: 'auto',
     })
 

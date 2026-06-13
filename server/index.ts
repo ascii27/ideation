@@ -7,6 +7,8 @@ import { modelsRouter } from './models.ts'
 import { textureRouter } from './texture.ts'
 import { logRouter } from './log.ts'
 import { visionRouter } from './vision.ts'
+import { mcpRouter } from './mcp.ts'
+import { hub } from './mcp/hub.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -42,6 +44,9 @@ async function main() {
   // Client→server log bridge (surfaces agent tool calls into journalctl).
   app.use('/api', logRouter)
 
+  // MCP Hub: execute bridged MCP-server tools server-side (Effort B, spec 1).
+  app.use('/api', mcpRouter)
+
   if (isProd) {
     // Serve the built frontend and fall back to index.html for client routing.
     const dist = path.resolve(root, 'dist')
@@ -57,6 +62,10 @@ async function main() {
     })
     app.use(vite.middlewares)
   }
+
+  // Connect configured MCP servers and cache their tools before serving, so the
+  // session config can advertise them. Never throws; failures degrade gracefully.
+  await hub.connect()
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`ideation server listening on http://0.0.0.0:${PORT} (${isProd ? 'prod' : 'dev'})`)
