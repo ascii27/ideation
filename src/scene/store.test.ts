@@ -389,3 +389,34 @@ describe('look_at_scene', () => {
     expect(r.ok).toBe(false)
   })
 })
+
+describe('MCP bridged tools (default case)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('forwards an unhandled tool to /api/mcp/call and returns the result', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ result: '{"location":"Tokyo"}' }) })),
+    )
+    const r = (await handleToolCall('weather__forecast', { location: 'Tokyo' })) as {
+      ok: boolean
+      result: unknown
+    }
+    expect(r.ok).toBe(true)
+    expect(r.result).toBe('{"location":"Tokyo"}')
+    // activity ended (not left active)
+    expect(useScene.getState().activities.some((a) => a.status === 'active')).toBe(false)
+  })
+
+  it('returns a clean error and an error activity when the bridge reports one', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, json: async () => ({ error: 'unknown tool "weather__forecast"' }) })),
+    )
+    const r = (await handleToolCall('weather__forecast', {})) as { ok: boolean }
+    expect(r.ok).toBe(false)
+    expect(useScene.getState().activities.some((a) => a.status === 'error')).toBe(true)
+  })
+})

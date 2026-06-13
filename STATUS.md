@@ -60,6 +60,7 @@ Quest Browser ──HTTPS──> https://armchair-sparkle.exe.xyz/  (exe.dev VM,
      ├── GET  /api/texture         → Poly Haven CC0 diffuse map → data URL (no key)
      ├── POST /api/log             → client→stdout log bridge (journalctl; see scripts/logs.sh)
      ├── POST /api/vision          → describe a scene screenshot (vision model; look_at_scene)
+     ├── POST /api/mcp/call        → execute a bridged MCP-server tool (MCP Hub; Effort B spec 1)
      └── GET  /api/health
 
    Frontend (React + TS, React Three Fiber + @react-three/xr):
@@ -98,6 +99,11 @@ always knows what exists and where (lightweight spatial memory within a session)
 | `src/xr/SceneCapture.tsx` | Renders the scene to an offscreen target → JPEG (XR-safe); the agent's "eyes" |
 | `src/xr/captureBridge.ts` | Singleton bridge so the tool handler can trigger a capture (`registerCapturer`/`captureScene`) |
 | `server/vision.ts` | `/api/vision` — describe a scene screenshot via a vision model (`VISION_MODEL`) |
+| `server/mcp.ts` | `/api/mcp/call` — execute a bridged MCP tool server-side |
+| `server/mcp/hub.ts` | MCP host: spawn configured MCP servers at boot, bridge their tools into the session, execute calls |
+| `server/mcp/bridge.ts` | Pure MCP-tool→function-tool mapping (namespacing + `inputSchema`→`parameters`) |
+| `server/mcp/config.ts` | Load/validate `mcp.config.json` (the configured MCP server list) |
+| `mcp-servers/weather/` | Standalone stdio MCP server wrapping Open-Meteo (`forecast` tool) + pure `normalize` helpers |
 | `src/xr/SettingsPanel.tsx`, `VrButton.tsx`, `CreditsPanel.tsx` | In-VR UI |
 | `src/agent/tools.ts` | Tool JSON schemas (shared with the server session) |
 | `src/agent/toolHandlers.ts` | `handleToolCall` — executes tools against the store |
@@ -124,6 +130,12 @@ metalness/roughness/color), `set_physics` (toggle gravity + collision),
 `look_at_scene` (**the agent "sees": snapshot the view or a focused object → vision model → spoken description**),
 `list_scene`, `clear_scene`.
 
+**Bridged MCP tools (Effort B, spec 1):** `weather__forecast` — live multi-day weather for a place
+(Open-Meteo, no key), exposed by the in-repo stdio weather MCP server and bridged into the agent by the
+**MCP Hub**. Any tool the browser doesn't handle locally is forwarded to `/api/mcp/call` and executed
+server-side (`toolHandlers.ts` default case), so adding an MCP server gives the agent new tools with zero
+client changes. Tools are namespaced `<serverId>__<tool>` to avoid colliding with built-ins.
+
 User-side (not agent): **teleport** (point a controller at the floor, release),
 **thumbstick locomotion** (left stick = hop ~1.5 m in the gaze-relative pushed direction;
 right stick = 45° snap-turn pivoting around the head), and **grab/move/rotate** any object
@@ -141,6 +153,9 @@ is now itself a `TeleportTarget`, and thumbstick hop is a raycast-independent fa
 - Poly Haven needs no key. Optional overrides: `REALTIME_MODEL`, `REALTIME_VOICE`,
   `IMAGE_MODEL`, `IMAGE_SIZE`, `VISION_MODEL` (default `gpt-4o-mini`), `PORT` (default 3000;
   exe.dev proxy points here).
+- **MCP servers** are configured in `mcp.config.json` (repo root, `{ servers: [{ id, command, args, env }] }`);
+  the bundled **weather** server uses **Open-Meteo** (geocoding + forecast) and needs **no key**. The MCP
+  Hub connects to the configured servers at boot (failures are logged and skipped — built-in tools still work).
 - The systemd unit loads this `.env`. After changing it: `sudo systemctl restart ideation`.
 
 ## Phases completed (all merged to `main`)
@@ -203,10 +218,15 @@ All PRs (#1–#7) are merged. **Effort A = PR #8** (`effort-a-positioning-physic
   non-uniform transform, thumbstick locomotion (hop + snap-turn), teleport-loss fix, and the
   **status HUD** (which closes out the earlier "loading/status indicators for async ops"
   follow-up — ground/texture/model/image generation now shows a bubble above the avatar).
-- **Effort B — external data integrations** (agreed next big effort, deferred): pull internet
-  content into VR as virtual objects, e.g. "the weather in Tokyo for the next 7 days." Server-side
-  fetch route + a new agent tool (e.g. `visualize_data`); agent decides the representation if the
-  user doesn't specify. Brainstorm as its own spec.
+- **Effort B — external data integrations ("The Connected Agent")**: reframed so **MCP servers +
+  Agent Skills** are the agent's primary interface to the world (all connectors curated). Decomposed
+  into 4 specs: **(1) MCP Hub** — server hosts MCP clients, bridges their tools into the Realtime
+  session, executes server-side via `/api/mcp/call`; **(2) Visualization** — `visualize_data` + layout
+  templates turning data into grouped 3D objects; **(3) Admin Console** — web UI (outside VR) to
+  register/enable MCP servers; **(4) Skills** — injectable per-domain instructions + preferred
+  visualization. **Spec 1 (MCP Hub) is DONE** (this branch `effort-b-mcp-hub`): in-repo stdio weather
+  server (Open-Meteo) → agent calls `weather__forecast` and *speaks* the forecast. Specs 2–4 remain;
+  next is Spec 2 (visualization). Spec + plan in `docs/superpowers/`.
 - **Phase 4 — spatial memory & persistence**: persist the scene across reloads (localStorage and/or
   server), named references ("put the tree where the red box was"), group/arrange tools.
 - **Locomotion** now offers teleport, physical turning, **thumbstick hop**, and **45° snap-turn**
