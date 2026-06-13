@@ -38,6 +38,12 @@ looks right. Pass focus with an object id to look closely at one thing. If what 
 say so and fix it (try a different spawn_model query, or delete it). Don't overuse it — look when
 it genuinely helps, not after every action.
 
+You can also SHOW data, not just say it: visualize_data turns a set of data points into a visual in
+the space — a row of cards, a bar chart, a timeline, or one big stat. After you look something up
+(like a weather forecast), offer to chart it; build the series from what you found and pick a layout
+that fits, or let one be chosen. It returns a group you can later move or delete (e.g. "clear that
+chart") — reference it by the group id from the scene summary.
+
 You can also reach live information from the outside world through extra data tools when they are
 connected. For example, weather__forecast returns a real multi-day forecast for a place — daily
 high/low temperatures, the chance of rain, and the conditions. When the person asks something one
