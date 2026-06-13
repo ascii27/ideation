@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   rowPositions, normalizeHeights, pickLayout, MAX_POINTS,
-  layoutCardRow, layoutStat,
+  layoutCardRow, layoutStat, layoutBarChart, layoutTimeline, _CONST,
   type DataPoint,
 } from './visualize'
 
@@ -79,5 +79,46 @@ describe('text layouts', () => {
     expect(specs[0].text).toContain('24')
     expect(specs[0].text).toContain('sunny')
     expect(specs[0].text).toContain('Now')
+  })
+})
+
+describe('box layouts', () => {
+  const series: DataPoint[] = [
+    { label: 'Mon', value: 10 },
+    { label: 'Tue', value: 20 },
+    { label: 'Wed', value: 30 },
+  ]
+
+  it('bars never touch (gap wider than width) so physics leaves them at rest', () => {
+    expect(_CONST.BAR_GAP).toBeGreaterThan(_CONST.BAR_WIDTH)
+  })
+
+  it('bar_chart emits a box bar + a text label per point (+ optional title)', () => {
+    const specs = layoutBarChart(series, [0, 1.3, -2.5], 'Temps')
+    const bars = specs.filter((s) => s.kind === 'box')
+    const labels = specs.filter((s) => s.kind === 'text' && s.label !== 'title')
+    expect(bars).toHaveLength(3)
+    expect(labels).toHaveLength(3)
+    expect(specs.some((s) => s.label === 'title')).toBe(true)
+  })
+
+  it('bars stand on the floor: centre y = height/2, tallest is MAX_BAR', () => {
+    const bars = layoutBarChart(series, [0, 1.3, -2.5]).filter((s) => s.kind === 'box')
+    // tallest (value 30) → full height 2.0 → centre y 1.0, scaleY = 2.0 / BAR_WIDTH
+    const tallest = bars[2]
+    expect(tallest.position[1]).toBeCloseTo(1.0)
+    expect(tallest.scale?.[1]).toBeCloseTo(2.0 / _CONST.BAR_WIDTH)
+    // base on floor: centre y ≈ (size * scaleY) / 2
+    expect(tallest.position[1]).toBeCloseTo((tallest.size! * tallest.scale![1]) / 2)
+  })
+
+  it('timeline lays ordered markers with labels (boxes on the floor)', () => {
+    const specs = layoutTimeline(series, [0, 1.3, -2.5])
+    const markers = specs.filter((s) => s.kind === 'box')
+    expect(markers).toHaveLength(3)
+    // left→right by array order
+    expect(markers[0].position[0]).toBeLessThan(markers[2].position[0])
+    // markers rest on the floor
+    expect(markers[0].position[1]).toBeCloseTo(_CONST.MARKER / 2)
   })
 })
