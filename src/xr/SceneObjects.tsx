@@ -562,7 +562,7 @@ function TextBody({ obj }: { obj: SceneObject }) {
   const text = obj.text ?? ''
   const width = Math.max(1.2, Math.min(4, text.length * 0.11))
   return (
-    <group>
+    <group scale={obj.size}>
       <mesh>
         <planeGeometry args={[width, 0.85]} />
         <meshBasicMaterial color="#15151f" transparent opacity={0.85} />

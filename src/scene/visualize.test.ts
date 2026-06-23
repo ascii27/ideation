@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   rowPositions, normalizeHeights, pickLayout, MAX_POINTS,
-  layoutCardRow, layoutStat, layoutBarChart, layoutTimeline, _CONST,
+  layoutCardRow, layoutStat, layoutBarChart, layoutTimeline, _CONST, panelWidth,
   type DataPoint,
 } from './visualize'
 
@@ -45,6 +45,13 @@ describe('visualize core helpers', () => {
 
   it('exposes a points cap', () => {
     expect(MAX_POINTS).toBeGreaterThan(0)
+  })
+
+  it('panelWidth mirrors the renderer clamp and scales by size', () => {
+    expect(panelWidth('hi', 1)).toBeCloseTo(1.2)               // short text → min 1.2
+    expect(panelWidth('x'.repeat(50), 1)).toBeCloseTo(4)        // long text → max 4
+    expect(panelWidth('hi', 0.5)).toBeCloseTo(0.6)              // scaled by size
+    expect(panelWidth('hi')).toBeCloseTo(1.2)                   // size defaults to 1
   })
 })
 

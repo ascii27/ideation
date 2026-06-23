@@ -48,6 +48,8 @@ const MAX_BAR = 2.0    // metres — height rendered for the series' largest val
 const MARKER = 0.18    // metres — timeline marker cube size
 const TITLE_DY = 0.9   // metres — how far a title panel floats above the row
 const LABEL_DY = 0.35  // metres — how far a bar/marker label floats from the object
+const LABEL_SIZE = 0.6     // size scale for bar/timeline value labels (small)
+const PANEL_MARGIN = 0.4   // metres of clear space between adjacent panel edges
 /** Hard cap on points so a runaway series can't flood the scene. */
 export const MAX_POINTS = 24
 
@@ -62,6 +64,15 @@ export function rowPositions(count: number, gap: number, anchorX: number): numbe
   const width = (count - 1) * gap   // span between the first and last centre
   const left = anchorX - width / 2  // leftmost centre
   return Array.from({ length: count }, (_, i) => round(left + i * gap))
+}
+
+/** Rendered width (metres) of a text panel — mirrors TextBody in SceneObjects.tsx:
+ *  a base width clamped to [1.2, 4] by text length, times the panel's size scale.
+ *  Kept in lockstep with the renderer so the layout's spacing math matches what
+ *  the user actually sees. */
+export function panelWidth(text: string, size = 1): number {
+  const base = Math.max(1.2, Math.min(4, text.length * 0.11))
+  return round(base * size)
 }
 
 /** Map each value to a bar height in [MIN_BAR, MAX_BAR], scaled across the series'
@@ -94,7 +105,7 @@ export function pickLayout(series: DataPoint[]): Layout {
 // Exposed ONLY for the unit tests, so they can assert against the tuning
 // constants (e.g. BAR_GAP > BAR_WIDTH) without hardcoding values that we
 // expect to tweak often. The layout functions below use the bare constants.
-export const _CONST = { CARD_GAP, BAR_GAP, BAR_WIDTH, MIN_BAR, MAX_BAR, MARKER, TITLE_DY, LABEL_DY }
+export const _CONST = { CARD_GAP, BAR_GAP, BAR_WIDTH, MIN_BAR, MAX_BAR, MARKER, TITLE_DY, LABEL_DY, LABEL_SIZE, PANEL_MARGIN }
 
 /** Compose a card's multi-line text from whichever fields are present. Kept tiny
  *  and separate so the exact card formatting is trivial to tweak later. The
