@@ -32,7 +32,7 @@ import {
 import { useScene } from '../scene/store'
 import { presetToMaterial } from '../scene/materials'
 import {
-  isSolidKind,
+  participatesInPhysics,
   OBJECT_GROUPS,
   OBJECT_GROUPS_NO_COLLIDE,
   effectiveScale,
@@ -127,7 +127,7 @@ function ObjectView({
   else if (obj.kind === 'model') body = <ModelBody obj={obj} />
   else body = <PrimitiveBody obj={obj} />
 
-  const wrapped = isSolidKind(obj.kind) ? (
+  const wrapped = participatesInPhysics(obj.kind, obj.noPhysics) ? (
     <PhysicsObject obj={obj}>{body}</PhysicsObject>
   ) : (
     <GrabbableObject obj={obj}>{body}</GrabbableObject>

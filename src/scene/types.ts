@@ -78,4 +78,7 @@ export interface SceneObject {
    *  whole group can be removed/moved as one unit. Set by the visualize_data
    *  tool; ungrouped objects leave it undefined. */
   groupId?: string
+  /** When true, this solid is NOT simulated (no gravity/collision) but stays
+   *  grabbable — set by visualize_data so chart objects don't drift. */
+  noPhysics?: boolean
 }

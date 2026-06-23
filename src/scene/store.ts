@@ -31,6 +31,8 @@ export interface SpawnArgs extends MaterialFields {
   position?: { x: number; y: number; z: number }
   /** Optional visualization-group tag (see SceneObject.groupId). */
   groupId?: string
+  /** Opt this object out of physics simulation (see SceneObject.noPhysics). */
+  noPhysics?: boolean
 }
 
 export interface UpdateArgs extends MaterialFields {
@@ -178,6 +180,7 @@ export const useScene = create<SceneState>((set, get) => ({
       scale: args.scale,
       glow: args.glow,
       groupId: args.groupId,
+      noPhysics: args.noPhysics,
     }
     set({ objects: [...objects, obj], counters: { ...counters, [args.kind]: n } })
     return obj
