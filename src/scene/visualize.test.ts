@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   rowPositions, normalizeHeights, pickLayout, MAX_POINTS,
   layoutCardRow, layoutStat, layoutBarChart, layoutTimeline, _CONST, panelWidth,
+  spreadByWidth,
   type DataPoint,
 } from './visualize'
 
@@ -55,6 +56,28 @@ describe('visualize core helpers', () => {
   })
 })
 
+describe('spreadByWidth', () => {
+  it('centres a row about anchorX with no overlapping panels', () => {
+    const widths = [1.2, 2.0, 1.2]
+    const gap = 0.4
+    const xs = spreadByWidth(widths, gap, 0)
+    // whole row centred about 0 (outer edges symmetric)
+    const leftEdge = xs[0] - widths[0] / 2
+    const rightEdge = xs[2] + widths[2] / 2
+    expect(leftEdge).toBeCloseTo(-rightEdge)
+    // adjacent panels do not overlap: centre gap >= half-widths + margin
+    for (let i = 0; i < xs.length - 1; i++) {
+      const need = (widths[i] + widths[i + 1]) / 2 + gap
+      expect(xs[i + 1] - xs[i]).toBeGreaterThanOrEqual(need - 1e-9)
+    }
+  })
+
+  it('handles a single panel (sits on the anchor) and empty input', () => {
+    expect(spreadByWidth([2], 0.4, 5)).toEqual([5])
+    expect(spreadByWidth([], 0.4, 0)).toEqual([])
+  })
+})
+
 describe('text layouts', () => {
   const series: DataPoint[] = [
     { label: 'Mon', value: 24, secondary: 18, caption: 'partly cloudy' },
@@ -67,10 +90,15 @@ describe('text layouts', () => {
     const cards = specs.filter((s) => s.label !== 'title')
     expect(cards).toHaveLength(3)
     expect(cards.every((s) => s.kind === 'text')).toBe(true)
-    // centred: x positions symmetric about 0
+    // whole row centred about the anchor and panels don't overlap
     const xs = cards.map((s) => s.position[0])
-    expect(xs[0]).toBeCloseTo(-xs[2])
-    expect(xs[1]).toBeCloseTo(0)
+    const ws = cards.map((s) => panelWidth(s.text ?? '', s.size ?? 1))
+    const leftEdge = xs[0] - ws[0] / 2
+    const rightEdge = xs[xs.length - 1] + ws[ws.length - 1] / 2
+    expect(leftEdge).toBeCloseTo(-rightEdge)
+    for (let i = 0; i < xs.length - 1; i++) {
+      expect(xs[i + 1] - xs[i]).toBeGreaterThanOrEqual((ws[i] + ws[i + 1]) / 2 + _CONST.PANEL_MARGIN - 0.01)
+    }
     // multi-line card text includes label, both temps, and caption
     expect(cards[0].text).toContain('Mon')
     expect(cards[0].text).toContain('24')

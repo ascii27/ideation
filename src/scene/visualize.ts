@@ -66,6 +66,21 @@ export function rowPositions(count: number, gap: number, anchorX: number): numbe
   return Array.from({ length: count }, (_, i) => round(left + i * gap))
 }
 
+/** Place variable-width panels in a row, centred about anchorX, with `gap` metres
+ *  of clear space between neighbouring EDGES. Returns one centre x per panel.
+ *  Unlike rowPositions (fixed centre-to-centre gap), this accounts for each
+ *  panel's own width, so wide and narrow panels never overlap. */
+export function spreadByWidth(widths: number[], gap: number, anchorX: number): number[] {
+  if (widths.length === 0) return []
+  const total = widths.reduce((a, w) => a + w, 0) + gap * (widths.length - 1)
+  let edge = anchorX - total / 2   // left edge of the whole row
+  return widths.map((w) => {
+    const centre = round(edge + w / 2)
+    edge += w + gap
+    return centre
+  })
+}
+
 /** Rendered width (metres) of a text panel — mirrors TextBody in SceneObjects.tsx:
  *  a base width clamped to [1.2, 4] by text length, times the panel's size scale.
  *  Kept in lockstep with the renderer so the layout's spacing math matches what
@@ -126,11 +141,13 @@ function cardText(p: DataPoint): string {
  *  for heterogeneous/qualitative data (the weather example reads great as cards). */
 export function layoutCardRow(series: DataPoint[], anchor: Vec3, title?: string): ObjectSpec[] {
   const [ax, ay, az] = anchor
-  const xs = rowPositions(series.length, CARD_GAP, ax)
+  const texts = series.map(cardText)
+  // cards render at default size 1; space them by their real rendered widths
+  const xs = spreadByWidth(texts.map((t) => panelWidth(t, 1)), PANEL_MARGIN, ax)
   const specs: ObjectSpec[] = series.map((p, i) => ({
     kind: 'text',
     position: [xs[i], ay, az],
-    text: cardText(p),
+    text: texts[i],
     color: p.color,
     label: p.label,
   }))
@@ -196,12 +213,14 @@ export function layoutBarChart(series: DataPoint[], anchor: Vec3, title?: string
  *  `box` solids resting on the floor (same physics note as bar_chart). */
 export function layoutTimeline(series: DataPoint[], anchor: Vec3, title?: string): ObjectSpec[] {
   const [ax, , az] = anchor
-  const xs = rowPositions(series.length, CARD_GAP, ax)
+  // the label panels are the wide footprint; space markers to match them so
+  // neither markers nor labels overlap.
+  const labels = series.map((p) => `${p.label}${p.caption ? `\n${p.caption}` : ''}`)
+  const xs = spreadByWidth(labels.map((t) => panelWidth(t, LABEL_SIZE)), PANEL_MARGIN, ax)
   const specs: ObjectSpec[] = []
   series.forEach((p, i) => {
     specs.push({ kind: 'box', position: [xs[i], round(MARKER / 2), az], size: MARKER, color: p.color ?? '#8d7bef', label: p.label })
-    const cap = p.caption ? `\n${p.caption}` : ''
-    specs.push({ kind: 'text', position: [xs[i], round(MARKER + LABEL_DY), az], text: `${p.label}${cap}`, size: 0.6 })
+    specs.push({ kind: 'text', position: [xs[i], round(MARKER + LABEL_DY), az], text: labels[i], size: LABEL_SIZE })
   })
   if (title) {
     specs.push({ kind: 'text', position: [ax, round(MARKER + LABEL_DY + TITLE_DY), az], text: title, size: 1.4, label: 'title' })
