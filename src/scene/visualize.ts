@@ -40,7 +40,6 @@ export interface ObjectSpec {
 }
 
 // ---- tuning constants (the knobs to tweak in-headset) ----------------------
-const CARD_GAP = 1.4   // metres between adjacent card/timeline panel centres
 const BAR_GAP = 0.55   // metres between bar centres — MUST stay > BAR_WIDTH so bars never touch/collide
 const BAR_WIDTH = 0.3  // metres — a bar's x/z footprint
 const MIN_BAR = 0.2    // metres — height rendered for the series' smallest value
@@ -63,6 +62,16 @@ function round(n: number): number {
  *  on a wall instead of stacking on each other. */
 export function galleryAnchor(base: Vec3, index: number): Vec3 {
   return [round(base[0] + index * GALLERY_STEP), base[1], base[2]]
+}
+
+/** Lowest non-negative gallery slot not present in `occupied`. A new visualization
+ *  takes this slot, so clearing ANY chart (its objects vanish, freeing the slot)
+ *  lets the next chart reuse that exact gap instead of stacking on a survivor. */
+export function nextFreeSlot(occupied: number[]): number {
+  const taken = new Set(occupied)
+  let slot = 0
+  while (taken.has(slot)) slot++
+  return slot
 }
 
 /** Even, centred spacing along x around an anchor. Returns one x per item so the
@@ -128,7 +137,7 @@ export function pickLayout(series: DataPoint[]): Layout {
 // Exposed ONLY for the unit tests, so they can assert against the tuning
 // constants (e.g. BAR_GAP > BAR_WIDTH) without hardcoding values that we
 // expect to tweak often. The layout functions below use the bare constants.
-export const _CONST = { CARD_GAP, BAR_GAP, BAR_WIDTH, MIN_BAR, MAX_BAR, MARKER, TITLE_DY, LABEL_DY, LABEL_SIZE, PANEL_MARGIN, GALLERY_STEP }
+export const _CONST = { BAR_GAP, BAR_WIDTH, MIN_BAR, MAX_BAR, MARKER, TITLE_DY, LABEL_DY, LABEL_SIZE, PANEL_MARGIN, GALLERY_STEP }
 
 /** Compose a card's multi-line text from whichever fields are present. Kept tiny
  *  and separate so the exact card formatting is trivial to tweak later. The
@@ -193,8 +202,10 @@ export function layoutBarChart(series: DataPoint[], anchor: Vec3, title?: string
   const [ax, , az] = anchor
   const labelTexts = series.map((p) => `${p.label}${p.value !== undefined ? ` ${p.value}` : ''}`)
   const widest = Math.max(0, ...labelTexts.map((t) => panelWidth(t, LABEL_SIZE)))
-  // gap must be wide enough to accommodate widest label + margin. Add a small buffer
-  // to account for rounding loss: rowPositions rounds positions, which can shrink the gap.
+  // gap must be wide enough to accommodate widest label + margin. The +0.009 buffer
+  // is load-bearing: rowPositions rounds each bar centre to 2 decimal places, so the
+  // distance between adjacent rounded centres can fall ~0.01 below the computed gap;
+  // the buffer keeps the actual spacing above the no-overlap threshold the tests check.
   const gap = Math.max(BAR_GAP, round(widest + PANEL_MARGIN + 0.009))
   const xs = rowPositions(series.length, gap, ax)
   const heights = normalizeHeights(series.map((p) => p.value ?? NaN))

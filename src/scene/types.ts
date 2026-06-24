@@ -81,4 +81,7 @@ export interface SceneObject {
   /** When true, this solid is NOT simulated (no gravity/collision) but stays
    *  grabbable — set by visualize_data so chart objects don't drift. */
   noPhysics?: boolean
+  /** Which gallery slot this object's visualization occupies (set by
+   *  visualize_data). Lets a cleared group free its exact slot for reuse. */
+  vizSlot?: number
 }

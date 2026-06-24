@@ -33,6 +33,8 @@ export interface SpawnArgs extends MaterialFields {
   groupId?: string
   /** Opt this object out of physics simulation (see SceneObject.noPhysics). */
   noPhysics?: boolean
+  /** Gallery slot tag for a visualization object (see SceneObject.vizSlot). */
+  vizSlot?: number
 }
 
 export interface UpdateArgs extends MaterialFields {
@@ -181,6 +183,7 @@ export const useScene = create<SceneState>((set, get) => ({
       glow: args.glow,
       groupId: args.groupId,
       noPhysics: args.noPhysics,
+      vizSlot: args.vizSlot,
     }
     set({ objects: [...objects, obj], counters: { ...counters, [args.kind]: n } })
     return obj

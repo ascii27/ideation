@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   rowPositions, normalizeHeights, pickLayout, MAX_POINTS,
   layoutCardRow, layoutStat, layoutBarChart, layoutTimeline, _CONST, panelWidth,
-  spreadByWidth, galleryAnchor,
+  spreadByWidth, galleryAnchor, nextFreeSlot,
   type DataPoint, type Vec3,
 } from './visualize'
 
@@ -53,6 +53,13 @@ describe('visualize core helpers', () => {
     expect(galleryAnchor(base, 0)).toEqual([0, 1.3, -2.5])
     expect(galleryAnchor(base, 1)).toEqual([_CONST.GALLERY_STEP, 1.3, -2.5])
     expect(galleryAnchor(base, 2)).toEqual([_CONST.GALLERY_STEP * 2, 1.3, -2.5])
+  })
+
+  it('nextFreeSlot reuses the lowest freed gallery slot', () => {
+    expect(nextFreeSlot([])).toBe(0)
+    expect(nextFreeSlot([0, 1, 2])).toBe(3)
+    expect(nextFreeSlot([0, 2])).toBe(1)   // interior gap is reused, not stacked
+    expect(nextFreeSlot([2, 1])).toBe(0)
   })
 
   it('panelWidth mirrors the renderer clamp and scales by size', () => {
