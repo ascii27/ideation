@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   rowPositions, normalizeHeights, pickLayout, MAX_POINTS,
   layoutCardRow, layoutStat, layoutBarChart, layoutTimeline, _CONST, panelWidth,
-  spreadByWidth,
-  type DataPoint,
+  spreadByWidth, galleryAnchor,
+  type DataPoint, type Vec3,
 } from './visualize'
 
 describe('visualize core helpers', () => {
@@ -46,6 +46,13 @@ describe('visualize core helpers', () => {
 
   it('exposes a points cap', () => {
     expect(MAX_POINTS).toBeGreaterThan(0)
+  })
+
+  it('galleryAnchor marches successive vizzes along +x', () => {
+    const base: Vec3 = [0, 1.3, -2.5]
+    expect(galleryAnchor(base, 0)).toEqual([0, 1.3, -2.5])
+    expect(galleryAnchor(base, 1)).toEqual([_CONST.GALLERY_STEP, 1.3, -2.5])
+    expect(galleryAnchor(base, 2)).toEqual([_CONST.GALLERY_STEP * 2, 1.3, -2.5])
   })
 
   it('panelWidth mirrors the renderer clamp and scales by size', () => {

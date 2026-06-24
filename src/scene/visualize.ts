@@ -50,11 +50,19 @@ const TITLE_DY = 0.9   // metres — how far a title panel floats above the row
 const LABEL_DY = 0.35  // metres — how far a bar/marker label floats from the object
 const LABEL_SIZE = 0.6     // size scale for bar/timeline value labels (small)
 const PANEL_MARGIN = 0.4   // metres of clear space between adjacent panel edges
+const GALLERY_STEP = 4  // metres between successive visualization anchors (march +x)
 /** Hard cap on points so a runaway series can't flood the scene. */
 export const MAX_POINTS = 24
 
 function round(n: number): number {
   return Math.round(n * 100) / 100
+}
+
+/** Anchor for the Nth simultaneous visualization (0-based): the base anchor
+ *  shifted +x by index * GALLERY_STEP, so charts line up side-by-side like panels
+ *  on a wall instead of stacking on each other. */
+export function galleryAnchor(base: Vec3, index: number): Vec3 {
+  return [round(base[0] + index * GALLERY_STEP), base[1], base[2]]
 }
 
 /** Even, centred spacing along x around an anchor. Returns one x per item so the
@@ -120,7 +128,7 @@ export function pickLayout(series: DataPoint[]): Layout {
 // Exposed ONLY for the unit tests, so they can assert against the tuning
 // constants (e.g. BAR_GAP > BAR_WIDTH) without hardcoding values that we
 // expect to tweak often. The layout functions below use the bare constants.
-export const _CONST = { CARD_GAP, BAR_GAP, BAR_WIDTH, MIN_BAR, MAX_BAR, MARKER, TITLE_DY, LABEL_DY, LABEL_SIZE, PANEL_MARGIN }
+export const _CONST = { CARD_GAP, BAR_GAP, BAR_WIDTH, MIN_BAR, MAX_BAR, MARKER, TITLE_DY, LABEL_DY, LABEL_SIZE, PANEL_MARGIN, GALLERY_STEP }
 
 /** Compose a card's multi-line text from whichever fields are present. Kept tiny
  *  and separate so the exact card formatting is trivial to tweak later. The

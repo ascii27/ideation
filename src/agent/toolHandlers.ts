@@ -3,7 +3,7 @@ import { findCatalogModel } from '../scene/modelCatalog'
 import { captureScene } from '../xr/captureBridge'
 import type { MaterialPreset } from '../scene/materials'
 import {
-  layoutCardRow, layoutBarChart, layoutTimeline, layoutStat, pickLayout, MAX_POINTS,
+  layoutCardRow, layoutBarChart, layoutTimeline, layoutStat, pickLayout, MAX_POINTS, galleryAnchor,
   type DataPoint, type Layout, type Vec3,
 } from '../scene/visualize'
 
@@ -326,7 +326,13 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
           : pickLayout(series)
       const title = typeof args.title === 'string' ? args.title : undefined
       const pos = (args as { position?: { x: number; y: number; z: number } }).position
-      const anchor: Vec3 = pos ? [pos.x, pos.y, pos.z] : DEFAULT_ANCHOR
+      // Gallery placement: with no explicit position, offset each new viz beside
+      // the existing ones — one slot per live group — so they don't pile up.
+      // Clearing a group frees its slot (the next viz fills the gap).
+      const liveGroups = new Set(
+        useScene.getState().objects.filter((o) => o.groupId).map((o) => o.groupId),
+      ).size
+      const anchor: Vec3 = pos ? [pos.x, pos.y, pos.z] : galleryAnchor(DEFAULT_ANCHOR, liveGroups)
       const specs =
         layout === 'card_row' ? layoutCardRow(series, anchor, title)
         : layout === 'bar_chart' ? layoutBarChart(series, anchor, title)
@@ -344,6 +350,7 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
           scale: s.scale,
           label: s.label,
           groupId,
+          noPhysics: true,
         })
       }
       useScene.getState().toast(`visualized ${series.length} points as ${layout}`)
