@@ -191,4 +191,20 @@ describe('box layouts', () => {
     const labelB = specs.find((s) => s.kind === 'text' && s.text?.startsWith('B'))
     expect(labelB?.text).toBe('B')
   })
+
+  it('bar_chart widens bar spacing so labels never overlap', () => {
+    const longSeries: DataPoint[] = [
+      { label: 'January', value: 10 },
+      { label: 'February', value: 20 },
+    ]
+    const specs = layoutBarChart(longSeries, [0, 0, -3])
+    const bars = specs.filter((s) => s.kind === 'box')
+    const gap = Math.abs(bars[1].position[0] - bars[0].position[0])
+    const widest = Math.max(
+      panelWidth('January 10', _CONST.LABEL_SIZE),
+      panelWidth('February 20', _CONST.LABEL_SIZE),
+    )
+    expect(gap).toBeGreaterThanOrEqual(widest + _CONST.PANEL_MARGIN - 1e-9)
+    expect(gap).toBeGreaterThanOrEqual(_CONST.BAR_GAP)
+  })
 })

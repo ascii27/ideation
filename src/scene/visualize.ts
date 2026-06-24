@@ -175,16 +175,20 @@ export function layoutStat(series: DataPoint[], anchor: Vec3, title?: string): O
  *  across the series). HOW THE BAR IS BUILT: a unit box scaled by `size`=BAR_WIDTH
  *  gives a BAR_WIDTH cube; the Y `scale` then stretches it to the target height h
  *  (scaleY = h / BAR_WIDTH). We place its CENTRE at y = h/2 so the base sits on the
- *  floor and the bar spawns already at rest. A small text label floats just in
- *  front of each bar's foot; the title floats above the tallest possible bar.
+ *  floor. A small text label floats just in front of each bar's foot; the title floats
+ *  above the tallest possible bar.
  *
- *  PHYSICS NOTE: bars are real `box` solids (gravity on by default). BAR_GAP is
- *  kept > BAR_WIDTH so neighbours never touch/collide, and resting on the floor
- *  means gravity won't move them. A grab can still knock one over — acceptable for
- *  v1 (the user can re-ask). A no-physics flag for viz solids is out of scope. */
+ *  SPACING: bar centres use a uniform gap wide enough for the widest label
+ *  (>= BAR_GAP so bars never touch). The visualize_data handler marks every bar
+ *  noPhysics, so bars stay put regardless of gravity/grabs. */
 export function layoutBarChart(series: DataPoint[], anchor: Vec3, title?: string): ObjectSpec[] {
   const [ax, , az] = anchor
-  const xs = rowPositions(series.length, BAR_GAP, ax)
+  const labelTexts = series.map((p) => `${p.label}${p.value !== undefined ? ` ${p.value}` : ''}`)
+  const widest = Math.max(0, ...labelTexts.map((t) => panelWidth(t, LABEL_SIZE)))
+  // gap must be wide enough to accommodate widest label + margin. Add a small buffer
+  // to account for rounding loss: rowPositions rounds positions, which can shrink the gap.
+  const gap = Math.max(BAR_GAP, round(widest + PANEL_MARGIN + 0.009))
+  const xs = rowPositions(series.length, gap, ax)
   const heights = normalizeHeights(series.map((p) => p.value ?? NaN))
   const specs: ObjectSpec[] = []
   series.forEach((p, i) => {
@@ -198,8 +202,7 @@ export function layoutBarChart(series: DataPoint[], anchor: Vec3, title?: string
       label: p.label,
     })
     // label panel just in front of the foot (toward the viewer = +z, slightly raised)
-    const valuePart = p.value !== undefined ? ` ${p.value}` : ''
-    specs.push({ kind: 'text', position: [xs[i], LABEL_DY, round(az + 0.4)], text: `${p.label}${valuePart}`, size: 0.6 })
+    specs.push({ kind: 'text', position: [xs[i], LABEL_DY, round(az + 0.4)], text: labelTexts[i], size: LABEL_SIZE })
   })
   if (title) {
     specs.push({ kind: 'text', position: [ax, round(MAX_BAR + TITLE_DY), az], text: title, size: 1.4, label: 'title' })
