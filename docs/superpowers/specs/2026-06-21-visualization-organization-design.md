@@ -71,13 +71,14 @@ than piling up — while remaining grabbable so the user can rearrange them by h
 
 ### 3. Gallery placement
 
-- The handler computes the anchor when the agent gives no explicit `position`:
-  `anchorX = DEFAULT_ANCHOR.x + liveVizGroupCount × GALLERY_STEP` (march right). First chart centred,
-  each subsequent chart one `GALLERY_STEP` to the right.
-- `liveVizGroupCount` = number of **distinct `groupId`s currently in the scene** (new tiny store
-  selector/helper). Clearing a group frees its slot, so the next chart fills the gap rather than
-  marching ever-rightward.
-- An explicit `position` argument still overrides the gallery offset entirely.
+- When the agent gives no explicit `position`, the chart takes the **lowest free gallery slot**:
+  `anchorX = DEFAULT_ANCHOR.x + slot × GALLERY_STEP` (slots march right from 0). First chart in slot 0,
+  the next free slot for each subsequent chart.
+- Each spawned object carries its `vizSlot`; the free slot is the lowest non-negative integer not
+  among the live objects' `vizSlot`s (pure `nextFreeSlot` helper). Because a cleared group's objects
+  vanish, **clearing any chart — not just the most recent — frees its exact slot** for the next chart
+  to reuse (a plain group *count* would stack the next chart on a survivor after an interior clear).
+- An explicit `position` argument still overrides the gallery offset entirely (and occupies no slot).
 - `GALLERY_STEP` is a tuning constant at the top of `visualize.ts` (≈ widest expected viz width,
   start ~4 m), adjustable in-headset.
 
