@@ -2,6 +2,15 @@ import { useScene, type SpawnArgs, type UpdateArgs } from '../scene/store'
 import { findCatalogModel } from '../scene/modelCatalog'
 import { captureScene } from '../xr/captureBridge'
 import type { MaterialPreset } from '../scene/materials'
+import {
+  layoutCardRow, layoutBarChart, layoutTimeline, layoutStat, pickLayout, MAX_POINTS, galleryAnchor, nextFreeSlot,
+  type DataPoint, type Layout, type Vec3,
+} from '../scene/visualize'
+
+// Where a visualization is anchored when the agent doesn't give a position: a
+// single point straight ahead at panel height. Bar/timeline layouts ignore the y
+// (their objects sit on the floor) and only use the x/z to centre the row.
+const DEFAULT_ANCHOR: Vec3 = [0, 1.3, -2.5]
 
 function objectExists(id: string): boolean {
   return useScene.getState().objects.some((o) => o.id === id)
@@ -283,6 +292,74 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
         useScene.getState().endActivity(act, 'look failed', 'error')
         return { ok: false, error: String(err), scene: scene.summary() }
       }
+    }
+
+    case 'visualize_data': {
+      // The agent supplies the data inline (see the visualize_data spec). We
+      // validate loosely — the model may send extra or missing fields — then pick
+      // a layout (explicit or heuristic), lay the points out via the pure module,
+      // and spawn every resulting object under one fresh groupId so the whole
+      // visualization can later be removed/moved as a unit.
+      const rawSeries = Array.isArray((args as { series?: unknown }).series)
+        ? ((args as { series: unknown[] }).series)
+        : []
+      const series: DataPoint[] = rawSeries
+        .filter((p): p is Record<string, unknown> => !!p && typeof p === 'object')
+        .map((p) => ({
+          label: String((p as { label?: unknown }).label ?? ''),
+          value: typeof p.value === 'number' ? p.value : undefined,
+          secondary: typeof p.secondary === 'number' ? p.secondary : undefined,
+          caption: typeof p.caption === 'string' ? p.caption : undefined,
+          color: typeof p.color === 'string' ? p.color : undefined,
+        }))
+        .slice(0, MAX_POINTS)
+      if (series.length === 0) {
+        return { ok: false, error: 'Provide a non-empty series of data points to visualize.', scene: scene.summary() }
+      }
+      const truncated = rawSeries.length > MAX_POINTS
+      // Honour an explicit layout only if it's one we support; otherwise let the
+      // heuristic decide (this is "the agent decides how to visualize" fallback).
+      const requested = typeof args.layout === 'string' ? (args.layout as string) : undefined
+      const layout: Layout =
+        requested === 'card_row' || requested === 'bar_chart' || requested === 'timeline' || requested === 'stat'
+          ? requested
+          : pickLayout(series)
+      const title = typeof args.title === 'string' ? args.title : undefined
+      const pos = (args as { position?: { x: number; y: number; z: number } }).position
+      // Gallery placement: with no explicit position, the chart takes the lowest
+      // FREE gallery slot (slot N → DEFAULT_ANCHOR shifted +x by N*GALLERY_STEP), so
+      // charts line up side-by-side. Every object carries its slot (vizSlot); when a
+      // group is cleared its objects vanish, freeing that slot — so clearing ANY
+      // chart (not just the most recent) lets the next chart reuse its exact slot.
+      const occupiedSlots = useScene
+        .getState()
+        .objects.map((o) => o.vizSlot)
+        .filter((s): s is number => typeof s === 'number')
+      const slot = nextFreeSlot(occupiedSlots)
+      const anchor: Vec3 = pos ? [pos.x, pos.y, pos.z] : galleryAnchor(DEFAULT_ANCHOR, slot)
+      const specs =
+        layout === 'card_row' ? layoutCardRow(series, anchor, title)
+        : layout === 'bar_chart' ? layoutBarChart(series, anchor, title)
+        : layout === 'timeline' ? layoutTimeline(series, anchor, title)
+        : layoutStat(series, anchor, title)
+      // One group id ties the whole visualization together.
+      const groupId = useScene.getState().nextGroupId()
+      for (const s of specs) {
+        useScene.getState().spawn({
+          kind: s.kind,
+          position: { x: s.position[0], y: s.position[1], z: s.position[2] },
+          size: s.size,
+          color: s.color,
+          text: s.text,
+          scale: s.scale,
+          label: s.label,
+          groupId,
+          noPhysics: true,
+          vizSlot: pos ? undefined : slot,
+        })
+      }
+      useScene.getState().toast(`visualized ${series.length} points as ${layout}`)
+      return { ok: true, groupId, count: specs.length, layout, truncated, scene: useScene.getState().summary() }
     }
 
     case 'list_scene':

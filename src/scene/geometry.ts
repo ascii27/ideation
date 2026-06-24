@@ -43,6 +43,14 @@ export function isSolidKind(kind: ObjectKind): boolean {
   return kind !== 'text' && kind !== 'image' && kind !== 'ground'
 }
 
+/** Whether an object is simulated by physics. Solids (primitives + models) are —
+ *  UNLESS individually opted out via `noPhysics`. Visualization objects set the
+ *  flag so a chart stays exactly where its layout placed it (it falls through to
+ *  the grabbable, non-simulated path). Panels/ground are never solids. */
+export function participatesInPhysics(kind: ObjectKind, noPhysics?: boolean): boolean {
+  return isSolidKind(kind) && !noPhysics
+}
+
 /** Per-axis world scale of a solid: its uniform `size` times optional per-axis
  *  stretch multipliers (default [1,1,1]). Mirrors the mesh scale in SceneObjects. */
 export function effectiveScale(size: number, scale?: [number, number, number]): [number, number, number] {

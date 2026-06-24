@@ -109,11 +109,12 @@ always knows what exists and where (lightweight spatial memory within a session)
 | `src/agent/toolHandlers.ts` | `handleToolCall` — executes tools against the store |
 | `src/agent/realtime.ts`, `useRealtimeSession.ts` | WebRTC connection + React hook |
 | `src/agent/agentAudio.ts` | Analyser on the agent's audio → avatar pulse level |
-| `src/scene/store.ts`, `types.ts` | Scene store (zustand) + `SceneObject` model + `physics` state |
+| `src/scene/store.ts`, `types.ts` | Scene store (zustand) + `SceneObject` model + `physics` state. `SceneObject.groupId` + `nextGroupId`/`removeGroup` group a visualization so it can be moved/cleared as a unit (Effort B spec 2). |
 | `src/scene/geometry.ts` | Pure helpers: base-on-floor heights, physics collision-group masks |
 | `src/scene/modelCatalog.ts` | Curated CC0 GLB catalog (keyword → model) |
 | `src/scene/materials.ts` | Material presets → physical material params |
-| `src/scene/store.test.ts`, `geometry.test.ts` | Unit tests (34 total) for store / handlers / physics / geometry / materials |
+| `src/scene/visualize.ts` | **Pure layout engine** (Effort B spec 2): `series` → `ObjectSpec[]` per template (`card_row`/`bar_chart`/`timeline`/`stat`) + `pickLayout`/`normalizeHeights`. Heavily commented (expected to evolve). |
+| `src/scene/store.test.ts`, `geometry.test.ts`, `visualize.test.ts` | Unit tests (100+) for store / handlers / physics / geometry / materials / visualization layouts |
 | `scripts/deploy.sh`, `scripts/logs.sh`, `deploy/ideation.service` | Deploy + log fetch + systemd unit |
 | `docs/superpowers/specs/`, `plans/` | Effort A design spec + implementation plan |
 
@@ -128,6 +129,9 @@ metalness/roughness/color), `set_physics` (toggle gravity + collision),
 `set_environment` (**sky/background color, ambient light intensity, fog**),
 `create_ground` (large flat textured ground plane),
 `look_at_scene` (**the agent "sees": snapshot the view or a focused object → vision model → spoken description**),
+`visualize_data` (**turn an agent-supplied data series into a grouped set of 3D objects — `card_row` / `bar_chart` /
+`timeline` / `stat`; the agent picks the layout if unspecified; objects share a `groupId` so the chart can be
+moved/cleared as a unit**),
 `list_scene`, `clear_scene`.
 
 **Bridged MCP tools (Effort B, spec 1):** `weather__forecast` — live multi-day weather for a place
@@ -224,9 +228,11 @@ All PRs (#1–#7) are merged. **Effort A = PR #8** (`effort-a-positioning-physic
   session, executes server-side via `/api/mcp/call`; **(2) Visualization** — `visualize_data` + layout
   templates turning data into grouped 3D objects; **(3) Admin Console** — web UI (outside VR) to
   register/enable MCP servers; **(4) Skills** — injectable per-domain instructions + preferred
-  visualization. **Spec 1 (MCP Hub) is DONE** (this branch `effort-b-mcp-hub`): in-repo stdio weather
-  server (Open-Meteo) → agent calls `weather__forecast` and *speaks* the forecast. Specs 2–4 remain;
-  next is Spec 2 (visualization). Spec + plan in `docs/superpowers/`.
+  visualization. **Spec 1 (MCP Hub) DONE** (merged, #13): in-repo stdio weather server (Open-Meteo) →
+  agent calls `weather__forecast` and *speaks* the forecast. **Spec 2 (Visualization) DONE** (branch
+  `effort-b-visualization`): `visualize_data` turns an agent-supplied series into a grouped set of 3D
+  objects via the pure `src/scene/visualize.ts` layout engine (`card_row`/`bar_chart`/`timeline`/`stat`).
+  **Specs 3 (Admin Console) + 4 (Skills) remain.** Specs + plans in `docs/superpowers/`.
 - **Phase 4 — spatial memory & persistence**: persist the scene across reloads (localStorage and/or
   server), named references ("put the tree where the red box was"), group/arrange tools.
 - **Locomotion** now offers teleport, physical turning, **thumbstick hop**, and **45° snap-turn**

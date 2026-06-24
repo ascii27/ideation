@@ -9,7 +9,7 @@ beforeEach(() => {
   useScene.getState().clear()
   useScene.getState().setPhysics({ gravity: true, collision: true })
   useScene.getState().setEnvironment({ skyColor: '#0a0a0f', ambientIntensity: 0.4, fog: true })
-  useScene.setState({ activities: [], activitySeq: 0 })
+  useScene.setState({ activities: [], activitySeq: 0, groupSeq: 0 })
 })
 
 describe('scene store', () => {
@@ -418,5 +418,63 @@ describe('MCP bridged tools (default case)', () => {
     const r = (await handleToolCall('weather__forecast', {})) as { ok: boolean }
     expect(r.ok).toBe(false)
     expect(useScene.getState().activities.some((a) => a.status === 'error')).toBe(true)
+  })
+})
+
+describe('object grouping', () => {
+  it('mints monotonic group ids', () => {
+    expect(useScene.getState().nextGroupId()).toBe('viz-1')
+    expect(useScene.getState().nextGroupId()).toBe('viz-2')
+  })
+
+  it('spawns objects carrying a groupId and removes them as a unit', () => {
+    const g = useScene.getState().nextGroupId()
+    useScene.getState().spawn({ kind: 'text', text: 'a', groupId: g })
+    useScene.getState().spawn({ kind: 'box', groupId: g })
+    useScene.getState().spawn({ kind: 'box' }) // ungrouped — must survive
+    expect(useScene.getState().objects.filter((o) => o.groupId === g)).toHaveLength(2)
+    const removed = useScene.getState().removeGroup(g)
+    expect(removed).toBe(2)
+    expect(useScene.getState().objects).toHaveLength(1)
+    expect(useScene.getState().objects[0].groupId).toBeUndefined()
+  })
+
+  it('notes groups in the summary', () => {
+    const g = useScene.getState().nextGroupId()
+    useScene.getState().spawn({ kind: 'text', text: 'a', groupId: g })
+    useScene.getState().spawn({ kind: 'text', text: 'b', groupId: g })
+    expect(useScene.getState().summary()).toContain(`${g} (2 objects)`)
+  })
+})
+
+describe('visualize_data handler', () => {
+  it('spawns a grouped card row from a series and returns the groupId', async () => {
+    const series = [
+      { label: 'Mon', value: 24, secondary: 18, caption: 'cloudy' },
+      { label: 'Tue', value: 26, secondary: 19, caption: 'sun' },
+    ]
+    const r = (await handleToolCall('visualize_data', { series, layout: 'card_row', title: 'Tokyo' })) as {
+      ok: boolean; groupId: string; count: number; layout: string
+    }
+    expect(r.ok).toBe(true)
+    expect(r.layout).toBe('card_row')
+    // 2 cards + 1 title, all sharing the returned groupId
+    const grouped = useScene.getState().objects.filter((o) => o.groupId === r.groupId)
+    expect(grouped).toHaveLength(3)
+    expect(r.count).toBe(3)
+  })
+
+  it('uses the heuristic when no layout is given (all-numeric → bar_chart)', async () => {
+    const series = [{ label: 'A', value: 1 }, { label: 'B', value: 2 }]
+    const r = (await handleToolCall('visualize_data', { series })) as { ok: boolean; layout: string }
+    expect(r.ok).toBe(true)
+    expect(r.layout).toBe('bar_chart')
+  })
+
+  it('errors on an empty series without spawning anything', async () => {
+    const before = useScene.getState().objects.length
+    const r = (await handleToolCall('visualize_data', { series: [] })) as { ok: boolean }
+    expect(r.ok).toBe(false)
+    expect(useScene.getState().objects.length).toBe(before)
   })
 })

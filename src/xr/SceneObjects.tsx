@@ -32,7 +32,7 @@ import {
 import { useScene } from '../scene/store'
 import { presetToMaterial } from '../scene/materials'
 import {
-  isSolidKind,
+  participatesInPhysics,
   OBJECT_GROUPS,
   OBJECT_GROUPS_NO_COLLIDE,
   effectiveScale,
@@ -127,7 +127,7 @@ function ObjectView({
   else if (obj.kind === 'model') body = <ModelBody obj={obj} />
   else body = <PrimitiveBody obj={obj} />
 
-  const wrapped = isSolidKind(obj.kind) ? (
+  const wrapped = participatesInPhysics(obj.kind, obj.noPhysics) ? (
     <PhysicsObject obj={obj}>{body}</PhysicsObject>
   ) : (
     <GrabbableObject obj={obj}>{body}</GrabbableObject>
@@ -562,7 +562,7 @@ function TextBody({ obj }: { obj: SceneObject }) {
   const text = obj.text ?? ''
   const width = Math.max(1.2, Math.min(4, text.length * 0.11))
   return (
-    <group>
+    <group scale={obj.size}>
       <mesh>
         <planeGeometry args={[width, 0.85]} />
         <meshBasicMaterial color="#15151f" transparent opacity={0.85} />

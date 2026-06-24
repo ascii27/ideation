@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { solidHalfHeight, isSolidKind, OBJECT_GROUPS, OBJECT_GROUPS_NO_COLLIDE, FLOOR_GROUPS } from './geometry'
+import { solidHalfHeight, isSolidKind, participatesInPhysics, OBJECT_GROUPS, OBJECT_GROUPS_NO_COLLIDE, FLOOR_GROUPS } from './geometry'
 import { effectiveScale, scaledColliderArgs, pivotPlayerPosition, framingCamera } from './geometry'
 
 describe('solidHalfHeight', () => {
@@ -109,5 +109,24 @@ describe('snap-turn pivot', () => {
     const next = pivotPlayerPosition([0, 0, 0], 0, [0, 1.6, -1], Math.PI)
     expect(next[0]).toBeCloseTo(0)
     expect(next[2]).toBeCloseTo(-2)
+  })
+})
+
+describe('participatesInPhysics', () => {
+  it('simulates solids that are not opted out', () => {
+    expect(participatesInPhysics('box')).toBe(true)
+    expect(participatesInPhysics('sphere')).toBe(true)
+    expect(participatesInPhysics('model')).toBe(true)
+  })
+
+  it('never simulates panels or ground', () => {
+    expect(participatesInPhysics('text')).toBe(false)
+    expect(participatesInPhysics('image')).toBe(false)
+    expect(participatesInPhysics('ground')).toBe(false)
+  })
+
+  it('opts a solid out of physics when noPhysics is set', () => {
+    expect(participatesInPhysics('box', true)).toBe(false)
+    expect(participatesInPhysics('model', true)).toBe(false)
   })
 })

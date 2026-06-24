@@ -29,6 +29,12 @@ export interface SpawnArgs extends MaterialFields {
   rotation?: [number, number, number]
   attribution?: Attribution
   position?: { x: number; y: number; z: number }
+  /** Optional visualization-group tag (see SceneObject.groupId). */
+  groupId?: string
+  /** Opt this object out of physics simulation (see SceneObject.noPhysics). */
+  noPhysics?: boolean
+  /** Gallery slot tag for a visualization object (see SceneObject.vizSlot). */
+  vizSlot?: number
 }
 
 export interface UpdateArgs extends MaterialFields {
@@ -52,6 +58,12 @@ interface SceneState {
   spawn: (args: SpawnArgs) => SceneObject
   update: (id: string, patch: UpdateArgs) => SceneObject | null
   remove: (id: string) => boolean
+  /** Remove every object tagged with `groupId`; returns how many were removed. */
+  removeGroup: (groupId: string) => number
+  /** Monotonic source of visualization group ids ("viz-1", "viz-2", …). */
+  groupSeq: number
+  /** Mint the next unique group id. */
+  nextGroupId: () => string
   clear: () => void
   /** Compact text description fed back to the model so it knows what exists. */
   summary: () => string
@@ -107,6 +119,7 @@ export const useScene = create<SceneState>((set, get) => ({
   environment: { skyColor: '#0a0a0f', ambientIntensity: 0.4, fog: true },
   activities: [],
   activitySeq: 0,
+  groupSeq: 0,
 
   beginActivity: (text) => {
     const seq = get().activitySeq + 1
@@ -168,6 +181,9 @@ export const useScene = create<SceneState>((set, get) => ({
       roughness: args.roughness,
       scale: args.scale,
       glow: args.glow,
+      groupId: args.groupId,
+      noPhysics: args.noPhysics,
+      vizSlot: args.vizSlot,
     }
     set({ objects: [...objects, obj], counters: { ...counters, [args.kind]: n } })
     return obj
@@ -216,6 +232,22 @@ export const useScene = create<SceneState>((set, get) => ({
     return true
   },
 
+  removeGroup: (groupId) => {
+    const { objects } = get()
+    const keep = objects.filter((o) => o.groupId !== groupId)
+    const removed = objects.length - keep.length
+    if (removed > 0) set({ objects: keep })
+    return removed
+  },
+
+  nextGroupId: () => {
+    // Monotonic like activitySeq (NOT reset by clear()), so a group id is never
+    // reused while the agent might still reference an earlier one.
+    const seq = get().groupSeq + 1
+    set({ groupSeq: seq })
+    return `viz-${seq}`
+  },
+
   clear: () => set({ objects: [], counters: {} }),
 
   setPhysics: (patch) => {
@@ -249,7 +281,14 @@ export const useScene = create<SceneState>((set, get) => ({
       }
       return `${o.id}${lbl}: ${desc} at (${p})`
     })
-    return `${objects.length} object(s): ${parts.join('; ')}`
+    // Append a group roll-up so the agent can refer to a whole visualization
+    // (e.g. "clear viz-1") rather than every member object individually.
+    const groups = new Map<string, number>()
+    for (const o of objects) if (o.groupId) groups.set(o.groupId, (groups.get(o.groupId) ?? 0) + 1)
+    const groupNote = groups.size
+      ? ` Groups: ${[...groups].map(([g, n]) => `${g} (${n} objects)`).join(', ')}.`
+      : ''
+    return `${objects.length} object(s): ${parts.join('; ')}${groupNote}`
   },
 
   credits: () => {
